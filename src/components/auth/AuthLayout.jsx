@@ -31,29 +31,29 @@ export default function AuthLayout({
         <div className="absolute top-1/4 -right-36 w-96 h-96 bg-fuchsia-600/15 rounded-full blur-[140px]" />
         <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-purple-600/25 rounded-full blur-[130px]" />
 
-        {/* Ambient Neon Arc (top right, like gaming room tube lights) */}
+        {/* Ambient Neon Arc (top right corner — stays far from center content) */}
         <svg
-          className="absolute -top-10 -right-10 w-[340px] h-[340px] opacity-40"
+          className="absolute -top-6 right-0 w-[280px] h-[280px] opacity-35"
           viewBox="0 0 200 200"
           fill="none"
         >
           <path
             d="M20 180 A140 140 0 0 1 180 20"
             stroke="url(#arcGlow)"
-            strokeWidth="3.5"
+            strokeWidth="3"
             strokeLinecap="round"
           />
           <defs>
             <linearGradient id="arcGlow" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.2" />
-              <stop offset="50%" stopColor="#c084fc" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#d946ef" stopOpacity="0.3" />
+              <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.1" />
+              <stop offset="50%" stopColor="#c084fc" stopOpacity="0.85" />
+              <stop offset="100%" stopColor="#d946ef" stopOpacity="0.25" />
             </linearGradient>
           </defs>
         </svg>
 
         {/* Background Neon Controller Wall Silhouette (top-right ambient graphic) */}
-        <div className="absolute top-28 right-4 sm:right-16 opacity-35">
+        <div className="absolute top-32 right-6 sm:right-20 opacity-25">
           <svg className="w-24 h-18 text-purple-400" viewBox="0 0 100 70" fill="none">
             <path
               d="M28 14 C36 14 42 20 50 20 C58 20 64 14 72 14 C84 14 93 24 93 37 C93 47 87 63 76 63 C69 63 65 52 61 47 C57 42 54 41 50 41 C46 41 43 42 39 47 C35 52 31 63 24 63 C13 63 7 47 7 37 C7 24 16 14 28 14 Z"
@@ -151,7 +151,7 @@ export default function AuthLayout({
       </div>
 
       {/* ================= MAIN CONTENT CONTAINER ================= */}
-      <main className="relative z-10 w-full max-w-[465px] mx-auto px-4 sm:px-5 pb-8 pt-0 flex-1 flex flex-col justify-center items-center">
+      <main className="relative z-10 w-full max-w-[468px] mx-auto px-4 sm:px-5 pb-6 pt-0 flex-1 flex flex-col justify-center items-center">
         {children}
       </main>
 

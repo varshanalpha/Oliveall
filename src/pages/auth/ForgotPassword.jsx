@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, KeyRound } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import AuthLayout from '../../components/auth/AuthLayout';
 import AuthBranding from '../../components/auth/AuthBranding';
 import AuthInput from '../../components/auth/AuthInput';
 import PrimaryButton from '../../components/auth/PrimaryButton';
 import StatusMessage from '../../components/ui/StatusMessage';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
+  const { resetPassword } = useAuth();
+
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setStatus(null);
@@ -31,15 +34,31 @@ export default function ForgotPassword() {
 
     setLoading(true);
 
-    // Simulate password reset email transmission
-    setTimeout(() => {
+    try {
+      const { error: resetErr } = await resetPassword(email.trim());
+
       setLoading(false);
+
+      if (resetErr) {
+        setStatus({
+          type: 'error',
+          message: resetErr.message || 'Failed to send reset link. Please check the email address.',
+        });
+        return;
+      }
+
       setStatus({
         type: 'success',
-        message: `Reset instructions dispatched to ${email}. Please check your inbox or spam folder.`,
+        message: `Password recovery link dispatched to ${email.trim()}. Please check your inbox or spam folder.`,
       });
       setEmail('');
-    }, 1000);
+    } catch (err) {
+      setLoading(false);
+      setStatus({
+        type: 'error',
+        message: err.message || 'An unexpected error occurred.',
+      });
+    }
   };
 
   return (
@@ -47,22 +66,22 @@ export default function ForgotPassword() {
       <div className="w-full flex flex-col items-center">
         
         {/* Top Logo & Branding */}
-        <div className="mb-4">
+        <div className="mb-3">
           <AuthBranding />
         </div>
 
         {/* Page Headings */}
-        <div className="text-center mb-5">
-          <h2 className="text-2xl sm:text-[1.85rem] font-extrabold text-white tracking-tight leading-tight flex items-center justify-center gap-2">
-            <span>Reset Password</span>
+        <div className="text-center mb-4">
+          <h2 className="text-[1.65rem] sm:text-[1.9rem] font-extrabold text-white tracking-tight leading-tight">
+            Reset Password
           </h2>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">
+          <p className="text-[11.5px] sm:text-sm text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">
             Enter your registered email and we'll send you recovery instructions.
           </p>
         </div>
 
         {/* Form Container */}
-        <div className="w-full p-5 sm:p-8 rounded-3xl bg-[#120f22]/80 border border-white/10 backdrop-blur-xl shadow-glass-card">
+        <div className="w-full mt-2 p-5 sm:p-6 rounded-3xl bg-[#120f22]/85 border border-white/[0.09] backdrop-blur-xl shadow-glass-card">
           
           {status && (
             <StatusMessage
@@ -111,4 +130,3 @@ export default function ForgotPassword() {
     </AuthLayout>
   );
 }
-

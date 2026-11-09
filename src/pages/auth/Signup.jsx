@@ -11,9 +11,11 @@ import SocialLoginButton from '../../components/auth/SocialLoginButton';
 import AuthDivider from '../../components/auth/AuthDivider';
 import StatusMessage from '../../components/ui/StatusMessage';
 import OtpVerificationModal from '../../components/auth/OtpVerificationModal';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Signup() {
   const navigate = useNavigate();
+  const { signUp, signInWithGoogle, verifyOtp, resendOtp } = useAuth();
 
   // Form Fields
   const [fullName, setFullName] = useState('');
@@ -25,7 +27,8 @@ export default function Signup() {
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
-  
+  const [socialLoading, setSocialLoading] = useState(false);
+
   // 6-Digit OTP Step State
   const [showOtpStep, setShowOtpStep] = useState(false);
 
@@ -60,7 +63,7 @@ export default function Signup() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSignupSubmit = (e) => {
+  const handleSignupSubmit = async (e) => {
     e.preventDefault();
     setStatus(null);
 
@@ -68,25 +71,88 @@ export default function Signup() {
 
     setLoading(true);
 
-    // Simulate account preparation and transition to 6-digit OTP verification
-    setTimeout(() => {
+    try {
+      const { data, requiresConfirmation, error } = await signUp({
+        email: email.trim(),
+        password,
+        fullName: fullName.trim(),
+      });
+
+      if (error) {
+        setLoading(false);
+        let errorMsg = error.message || "Failed to create account. Please check your information.";
+        if (error.message && error.message.toLowerCase().includes("confirmation email")) {
+          errorMsg = "Email delivery error: Supabase could not dispatch the confirmation email. Please disable 'Confirm email' in Supabase (Authentication -> Providers -> Email) or verify your Resend custom SMTP credentials.";
+        }
+        setStatus({
+          type: "error",
+          message: errorMsg,
+        });
+        return;
+      }
+
       setLoading(false);
-      setShowOtpStep(true);
-    }, 700);
+
+      if (requiresConfirmation) {
+        // Switch directly to 6-digit OTP verification screen
+        setShowOtpStep(true);
+      } else {
+        // Direct signup without confirmation required
+        setStatus({
+          type: 'success',
+          message: 'Account created successfully! Welcome to Oliveal Gaming Zone.',
+        });
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1200);
+      }
+    } catch (err) {
+      setLoading(false);
+      setStatus({
+        type: 'error',
+        message: err.message || 'An unexpected error occurred during signup.',
+      });
+    }
   };
 
-  const handleOtpVerified = (code) => {
-    // When OTP is confirmed
-    setTimeout(() => {
-      navigate('/login');
-    }, 2000);
-  };
-
-  const handleGoogleSignup = () => {
-    setStatus({
-      type: 'info',
-      message: 'Google OAuth registration will be linked in the Supabase backend phase.',
+  const handleOtpVerified = async (code) => {
+    const res = await verifyOtp({
+      email: email.trim(),
+      token: code,
+      type: 'signup',
     });
+
+    if (res.error) {
+      return { error: res.error };
+    }
+
+    // Success — redirect to dashboard
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 1500);
+
+    return { success: true };
+  };
+
+  const handleResendOtp = async () => {
+    return await resendOtp({
+      email: email.trim(),
+      type: 'signup',
+    });
+  };
+
+  const handleGoogleSignup = async () => {
+    setStatus(null);
+    setSocialLoading(true);
+
+    const { error } = await signInWithGoogle();
+    if (error) {
+      setSocialLoading(false);
+      setStatus({
+        type: 'error',
+        message: error.message || 'Failed to authenticate with Google. Please try again.',
+      });
+    }
   };
 
   return (
@@ -97,8 +163,9 @@ export default function Signup() {
       {showOtpStep ? (
         /* 6-DIGIT OTP VERIFICATION VIEW */
         <OtpVerificationModal
-          email={email}
+          email={email.trim()}
           onVerify={handleOtpVerified}
+          onResend={handleResendOtp}
           onBack={() => setShowOtpStep(false)}
         />
       ) : (
@@ -106,27 +173,30 @@ export default function Signup() {
         <div className="w-full flex flex-col items-center">
           
           {/* Top Logo & Branding */}
-          <div className="mb-4">
+          <div className="mb-3">
             <AuthBranding />
           </div>
 
           {/* Heading */}
-          <div className="text-center mb-5">
-            <h2 className="text-2xl sm:text-[1.85rem] font-extrabold text-white tracking-tight leading-tight">
+          <div className="text-center mb-4">
+            <h2 className="text-[1.65rem] sm:text-[1.9rem] font-extrabold text-white tracking-tight leading-tight">
               Create Account
             </h2>
+            <p className="text-[11.5px] sm:text-sm text-slate-400 mt-1">
+              Join the Oliveal gaming community
+            </p>
           </div>
 
-          {/* Role Indicator (Customer locked / Admin registration strictly prohibited) */}
-          <RoleSelector
-            activeRole="customer"
-            disableAdmin={true}
-            adminDisabledReason="Admin registration is prohibited. Admin accounts are provisioned server-side."
-          />
-
           {/* Glass Form Card */}
-          <div className="w-full p-5 sm:p-8 rounded-3xl bg-[#120f22]/80 border border-white/10 backdrop-blur-xl shadow-glass-card">
+          <div className="w-full mt-2 p-5 sm:p-6 rounded-3xl bg-[#120f22]/85 border border-white/[0.09] backdrop-blur-xl shadow-glass-card">
             
+            {/* Role Indicator (Customer locked / Admin registration strictly prohibited) */}
+            <RoleSelector
+              activeRole="customer"
+              disableAdmin={true}
+              adminDisabledReason="Admin registration is prohibited. Admin accounts are provisioned server-side."
+            />
+
             {status && (
               <StatusMessage
                 type={status.type}
@@ -214,6 +284,7 @@ export default function Signup() {
             <AuthDivider text="or continue with" />
             <SocialLoginButton
               onClick={handleGoogleSignup}
+              loading={socialLoading}
               text="Continue with Google"
             />
 

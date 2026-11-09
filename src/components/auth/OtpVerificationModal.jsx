@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ShieldCheck, ArrowRight, RotateCw, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, RotateCw, CheckCircle2, ArrowLeft } from 'lucide-react';
 import PrimaryButton from './PrimaryButton';
 import StatusMessage from '../ui/StatusMessage';
 
 export default function OtpVerificationModal({
   email = 'user@example.com',
   onVerify,
+  onResend,
   onBack,
   isOpen = true,
 }) {
@@ -97,8 +98,29 @@ export default function OtpVerificationModal({
   };
 
   // Handle Resend Code
-  const handleResend = () => {
+  const handleResend = async () => {
     if (!canResend) return;
+    setStatus(null);
+
+    if (onResend) {
+      try {
+        const res = await onResend();
+        if (res?.error) {
+          setStatus({
+            type: 'error',
+            message: res.error.message || 'Failed to resend code. Please try again.',
+          });
+          return;
+        }
+      } catch (err) {
+        setStatus({
+          type: 'error',
+          message: err.message || 'Failed to resend verification code.',
+        });
+        return;
+      }
+    }
+
     setTimer(59);
     setCanResend(false);
     setStatus({
@@ -108,7 +130,7 @@ export default function OtpVerificationModal({
   };
 
   // Handle Verify Submission
-  const handleVerify = (e) => {
+  const handleVerify = async (e) => {
     if (e) e.preventDefault();
     const code = otp.join('');
 
@@ -123,19 +145,32 @@ export default function OtpVerificationModal({
     setLoading(true);
     setStatus(null);
 
-    // Simulate verification
-    setTimeout(() => {
+    try {
+      if (onVerify) {
+        const res = await onVerify(code);
+        if (res?.error) {
+          setStatus({
+            type: 'error',
+            message: res.error.message || 'Invalid verification code. Please check and try again.',
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       setLoading(false);
       setIsVerified(true);
       setStatus({
         type: 'success',
         message: 'Email successfully verified! Welcome to Oliveal Gaming Zone.',
       });
-
-      if (onVerify) {
-        onVerify(code);
-      }
-    }, 1200);
+    } catch (err) {
+      setLoading(false);
+      setStatus({
+        type: 'error',
+        message: err.message || 'Verification failed. Please check the code.',
+      });
+    }
   };
 
   if (!isOpen) return null;
@@ -235,7 +270,7 @@ export default function OtpVerificationModal({
         </div>
 
         {/* Back / Change Email Link */}
-        {onBack && (
+        {onBack && !isVerified && (
           <div className="mt-5 text-center">
             <button
               type="button"
