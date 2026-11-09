@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Calendar, Clock, Users, Gamepad2, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Calendar, Clock, Users, Gamepad2, ArrowRight, QrCode } from 'lucide-react';
 import PrimaryButton from '../auth/PrimaryButton';
 
 export default function BookingSuccessModal({ isOpen, booking, onClose }) {
@@ -71,14 +71,25 @@ export default function BookingSuccessModal({ isOpen, booking, onClose }) {
               navigate('/my-bookings');
             }}
           >
-            <span>View in My Bookings</span>
-            <ArrowRight className="w-4 h-4 ml-1" />
+            View in My Bookings
           </PrimaryButton>
 
           <button
             type="button"
+            onClick={() => {
+              onClose();
+              navigate('/my-bookings');
+            }}
+            className="w-full py-3 px-4 rounded-2xl bg-purple-600/15 hover:bg-purple-600/25 border border-purple-500/30 text-purple-200 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95"
+          >
+            <QrCode className="w-4 h-4 text-purple-400" />
+            <span>Show Check-In QR</span>
+          </button>
+
+          <button
+            type="button"
             onClick={onClose}
-            className="w-full py-3 px-4 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] text-slate-300 hover:text-white font-semibold text-xs transition"
+            className="w-full py-2.5 px-4 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-white font-medium text-xs transition"
           >
             Book Another Slot
           </button>

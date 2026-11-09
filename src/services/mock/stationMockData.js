@@ -72,7 +72,7 @@ export const STATIONS = [
     badgeText: 'Available',
     badgeType: 'available',
     pricePerHour: 250,
-    maxPlayers: 2,
+    maxPlayers: 1,
     description: 'Direct-drive force feedback racing cockpit with load-cell pedals and wrap-around immersion.',
   },
   {
@@ -86,7 +86,7 @@ export const STATIONS = [
     badgeText: 'Booked until 07:30 PM',
     badgeType: 'booked',
     pricePerHour: 250,
-    maxPlayers: 2,
+    maxPlayers: 1,
     description: 'Pro racing chassis with hydraulic pedals, dynamic haptic feedback, and sequential shifter.',
   },
 ];

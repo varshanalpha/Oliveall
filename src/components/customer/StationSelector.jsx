@@ -21,12 +21,12 @@ export default function StationSelector({ selectedStation, onSelectStation }) {
       >
         <div className="flex items-center gap-3.5 sm:gap-4">
           {/* Station Image Thumbnail */}
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-b from-[#140e2b]/90 via-[#0e0a1e]/90 to-[#090715] border border-purple-500/20 flex items-center justify-center p-1.5 shrink-0 overflow-hidden shadow-inner">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(168,85,247,0.3)_0%,_transparent_75%)] pointer-events-none" />
+          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-b from-[#181233] to-[#0d0a1a] border border-white/[0.08] flex items-center justify-center p-2 shrink-0">
+            <div className="absolute inset-0 bg-purple-600/15 blur-lg pointer-events-none" />
             <img
               src={selectedStation.image}
               alt={selectedStation.name}
-              className="relative z-10 w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.8)] group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)]"
             />
           </div>
 
@@ -80,21 +80,17 @@ export default function StationSelector({ selectedStation, onSelectStation }) {
                     onSelectStation(station);
                     setDropdownOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition ${
-                    isSelected
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition ${isSelected
                       ? 'bg-purple-600/30 text-white border border-purple-500/40'
                       : 'hover:bg-white/[0.06] text-slate-300 hover:text-white'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="relative w-8 h-8 rounded-lg bg-[#0e091d] p-1 border border-purple-500/25 flex items-center justify-center shrink-0 overflow-hidden">
-                      <div className="absolute inset-0 bg-purple-500/20 blur-sm pointer-events-none" />
-                      <img
-                        src={station.image}
-                        alt={station.name}
-                        className="relative z-10 w-full h-full object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)]"
-                      />
-                    </div>
+                    <img
+                      src={station.image}
+                      alt={station.name}
+                      className="w-8 h-8 object-contain rounded-lg bg-[#0d091a] p-1 border border-white/10"
+                    />
                     <div>
                       <span className="text-sm font-bold block leading-tight">{station.name}</span>
                       <span className="text-[11px] text-slate-400">{station.category}</span>
@@ -116,4 +112,3 @@ export default function StationSelector({ selectedStation, onSelectStation }) {
     </div>
   );
 }
-

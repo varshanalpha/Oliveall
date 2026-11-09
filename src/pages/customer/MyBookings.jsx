@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Gamepad2 } from 'lucide-react';
 import CustomerHeader from '../../components/customer/CustomerHeader';
 import BookingCard from '../../components/customer/BookingCard';
+import BookingQrModal from '../../components/customer/BookingQrModal';
 import { getCustomerBookings } from '../../services/mock/bookingStore';
 
 export default function MyBookings() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'past'
   const [bookings, setBookings] = useState([]);
+  const [selectedQrBooking, setSelectedQrBooking] = useState(null);
 
   // Load customer bookings
   const loadBookings = () => {
@@ -113,12 +115,23 @@ export default function MyBookings() {
             </div>
           ) : (
             displayedList.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} />
+              <BookingCard
+                key={booking.id}
+                booking={booking}
+                onShowQr={(b) => setSelectedQrBooking(b)}
+              />
             ))
           )}
         </div>
 
       </main>
+
+      {/* Booking QR Code Modal */}
+      <BookingQrModal
+        isOpen={Boolean(selectedQrBooking)}
+        booking={selectedQrBooking}
+        onClose={() => setSelectedQrBooking(null)}
+      />
 
       {/* Footer */}
       <footer className="relative z-10 w-full py-4 text-center text-[11px] text-slate-500 border-t border-white/[0.06]">

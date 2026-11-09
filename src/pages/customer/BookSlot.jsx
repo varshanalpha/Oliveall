@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Info, HelpCircle } from 'lucide-react';
 import CustomerHeader from '../../components/customer/CustomerHeader';
 import StationSelector from '../../components/customer/StationSelector';
@@ -17,10 +17,13 @@ import { getBookedSlotsForStation, createCustomerBooking } from '../../services/
 
 export default function BookSlot() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  // 1. Station State (Preselect from URL query e.g. /book-slot?station=alpha)
-  const stationParam = searchParams.get('station');
+  const editState = location.state || {};
+
+  // 1. Station State (Preselect from edit state or URL query e.g. /book-slot?station=alpha)
+  const stationParam = editState.stationId || searchParams.get('station');
   const [selectedStation, setSelectedStation] = useState(() => getStationById(stationParam));
 
   // If query param changes, sync station
@@ -32,14 +35,35 @@ export default function BookSlot() {
 
   // 2. Date State (Calculate eligible dates: Today vs Tomorrow 8 PM rule)
   const eligibleDates = useMemo(() => getEligibleBookingDates(), []);
-  const [selectedDate, setSelectedDate] = useState(() => eligibleDates[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (editState.date?.isoDate) {
+      const match = eligibleDates.find((d) => d.isoDate === editState.date.isoDate);
+      if (match) return match;
+    }
+    return eligibleDates[0];
+  });
 
-  // 3. Player Count State (Strictly 1 or 2)
-  const [players, setPlayers] = useState(2);
+  // 3. Player Count State (Strictly 1 or 2; Racing Simulators are strictly 1)
+  const isSimulator =
+    selectedStation?.type === 'simulator' ||
+    selectedStation?.category === 'Racing Simulator' ||
+    selectedStation?.maxPlayers === 1;
+
+  const [players, setPlayers] = useState(() => {
+    if (isSimulator) return 1;
+    return editState.players || 2;
+  });
+
+  // Automatically enforce 1 player whenever a racing simulator is selected
+  useEffect(() => {
+    if (isSimulator && players !== 1) {
+      setPlayers(1);
+    }
+  }, [selectedStation.id, isSimulator]);
 
   // 4. Time Selection State (15-min intervals, strictly 60, 90, 120 min)
-  const [startTime, setStartTime] = useState('18:30'); // Default 06:30 PM matching reference
-  const [duration, setDuration] = useState(90); // Default 90 min matching reference
+  const [startTime, setStartTime] = useState(() => editState.startTime || '18:30'); // Default 06:30 PM matching reference
+  const [duration, setDuration] = useState(() => editState.duration || 90); // Default 90 min matching reference
 
   // 5. Existing Booked Slots for Station & Date
   const [bookedSlots, setBookedSlots] = useState([]);
@@ -80,28 +104,20 @@ export default function BookSlot() {
     );
   }, [calculatedSlot, bookedSlots]);
 
-  // Handle Confirm Booking Submission
+  // Handle Confirm Booking Submission — Route to Confirm Booking Page
   const handleConfirmBooking = () => {
     if (!validation.isValid) return;
 
-    setIsSubmitting(true);
-
-    setTimeout(() => {
-      const newBooking = createCustomerBooking({
+    navigate('/confirm-booking', {
+      state: {
         station: selectedStation,
-        dateFormatted: selectedDate,
-        startTimeFormatted: calculatedSlot.startTimeFormatted,
-        endTimeFormatted: calculatedSlot.endTimeFormatted,
-        startMinutes: calculatedSlot.startMinutes,
-        endMinutes: calculatedSlot.endMinutes,
-        durationMinutes: duration,
-        durationLabel: `${duration} Minutes`,
+        date: selectedDate,
+        startTime,
+        duration,
         players,
-      });
-
-      setIsSubmitting(false);
-      setConfirmedBooking(newBooking);
-    }, 600);
+        calculatedSlot,
+      },
+    });
   };
 
   return (
@@ -157,9 +173,10 @@ export default function BookSlot() {
           onSelectDate={(date) => setSelectedDate(date)}
         />
 
-        {/* 3. Select Number of Players (1 Player vs 2 Players) */}
+        {/* 3. Select Number of Players (1 Player vs 2 Players; Racing Simulator is strictly 1) */}
         <PlayerSelector
           players={players}
+          maxPlayers={isSimulator ? 1 : 2}
           onSelectPlayers={(num) => setPlayers(num)}
         />
 

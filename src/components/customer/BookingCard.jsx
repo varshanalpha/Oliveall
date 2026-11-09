@@ -1,7 +1,7 @@
 import React from 'react';
-import { Calendar, Clock, Users, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, Users, CheckCircle2, QrCode } from 'lucide-react';
 
-export default function BookingCard({ booking }) {
+export default function BookingCard({ booking, onShowQr }) {
   const isConfirmed = booking.status === 'Confirmed';
 
   return (
@@ -70,6 +70,21 @@ export default function BookingCard({ booking }) {
           </span>
         </div>
 
+      </div>
+
+      {/* Show Booking QR Code Action */}
+      <div className="mt-3.5 pt-3 border-t border-white/[0.07]">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onShowQr?.(booking);
+          }}
+          className="w-full py-2.5 px-4 rounded-2xl bg-purple-600/15 hover:bg-purple-600/25 border border-purple-500/30 hover:border-purple-400/60 text-purple-200 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] shadow-sm group"
+        >
+          <QrCode className="w-4 h-4 text-purple-400 group-hover:text-purple-300 transition-colors" />
+          <span>Show Booking QR</span>
+        </button>
       </div>
 
     </div>

@@ -111,7 +111,7 @@ export const INITIAL_STATION_SLOTS = {
       startMinutes: 1170,
       endMinutes: 1290,
       durationMinutes: 120,
-      players: 2,
+      players: 1,
     },
   ],
   'rs-2': [
@@ -131,7 +131,7 @@ export const INITIAL_STATION_SLOTS = {
       startMinutes: 1050,
       endMinutes: 1170,
       durationMinutes: 120,
-      players: 2,
+      players: 1,
     },
   ],
 };
@@ -165,7 +165,7 @@ export const INITIAL_CUSTOMER_BOOKINGS = [
     timeRange: '09:00 PM – 11:00 PM',
     durationLabel: '120 Minutes',
     durationMinutes: 120,
-    players: 2,
+    players: 1,
     status: 'Confirmed',
     isUpcoming: true,
     totalPrice: 500,

@@ -8,7 +8,7 @@ import { STATIONS } from '../../services/mock/stationMockData';
 export default function CustomerHome() {
   return (
     <div className="min-h-screen w-full bg-[#07060e] text-white flex flex-col justify-between selection:bg-purple-600 selection:text-white relative overflow-x-hidden">
-      
+
       {/* ================= BACKGROUND GAMING AMBIENCE ================= */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/15 rounded-full blur-[140px]" />
@@ -21,7 +21,7 @@ export default function CustomerHome() {
 
       {/* Main Customer Screen Content Container */}
       <main className="relative z-10 w-full max-w-[465px] sm:max-w-xl mx-auto px-4 sm:px-5 py-5 flex-1 flex flex-col gap-5">
-        
+
         {/* 1. "Ready to Play?" Hero Banner */}
         <HeroSection />
 
@@ -59,4 +59,3 @@ export default function CustomerHome() {
     </div>
   );
 }
-

@@ -7,8 +7,8 @@
 import { INITIAL_STATION_SLOTS, INITIAL_CUSTOMER_BOOKINGS } from './bookingMockData';
 
 const STORAGE_KEYS = {
-  SLOTS: 'oliveal_mock_station_slots_v1',
-  BOOKINGS: 'oliveal_mock_customer_bookings_v1',
+  SLOTS: 'oliveal_mock_station_slots_v2',
+  BOOKINGS: 'oliveal_mock_customer_bookings_v2',
 };
 
 // Retrieve or initialize station booked slots

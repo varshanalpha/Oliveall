@@ -6,6 +6,7 @@ import ForgotPassword from '../pages/auth/ForgotPassword';
 import ResetPassword from '../pages/auth/ResetPassword';
 import CustomerHome from '../pages/customer/CustomerHome';
 import BookSlot from '../pages/customer/BookSlot';
+import ConfirmBooking from '../pages/customer/ConfirmBooking';
 import MyBookings from '../pages/customer/MyBookings';
 import AdminDashboard from '../pages/admin/Dashboard';
 import ProtectedRoute from './ProtectedRoute';
@@ -106,6 +107,16 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/confirm-booking"
+        element={
+          <ProtectedRoute>
+            <ConfirmBooking />
+          </ProtectedRoute>
+        }
+      />
+      {/* Visual verification preview route */}
+      <Route path="/preview-confirm" element={<ConfirmBooking />} />
       <Route
         path="/my-bookings"
         element={
