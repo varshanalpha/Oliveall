@@ -135,23 +135,23 @@ export default function AuthLayout({
       </div>
 
       {/* ================= TOP BAR (OPTIONAL BACK BUTTON) ================= */}
-      <div className="relative z-20 w-full max-w-[420px] mx-auto pt-3 px-4 flex items-center justify-between min-h-[40px]">
+      <div className="relative z-20 w-full max-w-[465px] mx-auto pt-4 px-4 sm:px-5 flex items-center justify-between min-h-[44px]">
         {showBackButton ? (
           <button
             type="button"
             onClick={handleBack}
             aria-label="Go Back"
-            className="w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.14] active:scale-95 border border-white/10 flex items-center justify-center text-slate-200 hover:text-white transition-all backdrop-blur-md shadow-lg group"
+            className="w-10 h-10 rounded-full bg-white/[0.08] hover:bg-white/[0.14] active:scale-95 border border-white/10 flex items-center justify-center text-slate-200 hover:text-white transition-all backdrop-blur-md shadow-lg group"
           >
-            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+            <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-0.5" />
           </button>
         ) : (
-          <div className="w-9 h-9" />
+          <div className="w-10 h-10" />
         )}
       </div>
 
       {/* ================= MAIN CONTENT CONTAINER ================= */}
-      <main className="relative z-10 w-full max-w-[420px] mx-auto px-4 pb-8 pt-0 flex-1 flex flex-col justify-center items-center">
+      <main className="relative z-10 w-full max-w-[465px] mx-auto px-4 sm:px-5 pb-8 pt-0 flex-1 flex flex-col justify-center items-center">
         {children}
       </main>
 

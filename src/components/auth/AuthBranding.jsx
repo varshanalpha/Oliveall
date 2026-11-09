@@ -6,19 +6,19 @@ export default function AuthBranding({ size = 'md' }) {
   return (
     <div className="flex flex-col items-center justify-center text-center select-none">
       {/* Neon Controller Icon */}
-      <div className="relative mb-1 flex items-center justify-center">
+      <div className="relative mb-1.5 flex items-center justify-center">
         {/* Ambient Glow behind controller */}
-        <div className="absolute inset-0 bg-purple-500/35 blur-xl rounded-full scale-125 pointer-events-none" />
+        <div className="absolute inset-0 bg-purple-500/35 blur-xl rounded-full scale-135 pointer-events-none" />
         
         <svg
-          className={`${isSmall ? 'w-11 h-8' : 'w-14 h-10'} text-purple-400 relative z-10 transition-transform duration-300 hover:scale-105`}
+          className={`${isSmall ? 'w-12 h-9' : 'w-16 h-11 sm:w-[70px] sm:h-[50px]'} text-purple-400 relative z-10 transition-transform duration-300 hover:scale-105 drop-shadow-[0_0_15px_rgba(168,85,247,0.5)]`}
           viewBox="0 0 100 70"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
             <filter id="logo-glow" x="-25%" y="-25%" width="150%" height="150%">
-              <feGaussianBlur stdDeviation="2.2" result="blur" />
+              <feGaussianBlur stdDeviation="2.4" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
@@ -32,8 +32,8 @@ export default function AuthBranding({ size = 'md' }) {
           </defs>
 
           {/* Sparkles / Plus signs */}
-          <path d="M12 20 L16 20 M14 18 L14 22" stroke="#d8b4fe" strokeWidth="1.5" strokeLinecap="round" />
-          <path d="M84 18 L88 18 M86 16 L86 20" stroke="#d8b4fe" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M12 20 L16 20 M14 18 L14 22" stroke="#d8b4fe" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M84 18 L88 18 M86 16 L86 20" stroke="#d8b4fe" strokeWidth="1.6" strokeLinecap="round" />
 
           {/* Main Controller Body */}
           <path
@@ -73,12 +73,12 @@ export default function AuthBranding({ size = 'md' }) {
       </div>
 
       {/* Brand Title */}
-      <h1 className="font-extrabold tracking-tight text-white italic text-2xl sm:text-3xl drop-shadow-[0_2px_12px_rgba(255,255,255,0.2)]">
+      <h1 className="font-extrabold tracking-tight text-white italic text-3xl sm:text-[2.2rem] drop-shadow-[0_2px_14px_rgba(255,255,255,0.22)]">
         Oliveal
       </h1>
 
       {/* Subtitle */}
-      <p className="text-[9px] sm:text-[10px] font-bold tracking-[0.3em] text-slate-300 uppercase mt-0.5">
+      <p className="text-[10px] sm:text-[11.5px] font-bold tracking-[0.32em] text-slate-300 uppercase mt-1">
         GAMING ZONE
       </p>
     </div>

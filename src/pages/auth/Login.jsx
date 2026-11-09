@@ -76,16 +76,22 @@ export default function Login() {
       <div className="w-full flex flex-col items-center">
 
         {/* Top Logo & Branding */}
-        <div className="mb-3">
+        <div className="mb-4">
           <AuthBranding />
         </div>
 
-        {/* Page Headings */}
-        <div className="text-center mb-4">
-          <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-            {role === 'admin' ? 'Admin  Portal' : 'Welcome  Back'}
+        {/* Page Headings with smooth cross-fade animation */}
+        <div className="text-center mb-5 min-h-[58px] flex flex-col justify-center">
+          <h2
+            key={role + '-title'}
+            className="text-2xl sm:text-[1.85rem] font-extrabold text-white tracking-tight leading-tight animate-fadeIn"
+          >
+            {role === 'admin' ? 'Admin Portal' : 'Welcome Back'}
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p
+            key={role + '-subtitle'}
+            className="text-xs sm:text-sm text-slate-400 mt-1 animate-fadeIn"
+          >
             {role === 'admin'
               ? 'Sign in with your enterprise credentials'
               : 'Login to your account'}
@@ -100,7 +106,7 @@ export default function Login() {
         }} />
 
         {/* Main Glassmorphic Form Card */}
-        <div className="w-full p-4 sm:p-6 rounded-3xl bg-[#120f22]/80 border border-white/10 backdrop-blur-xl shadow-glass-card">
+        <div className="w-full p-5 sm:p-8 rounded-3xl bg-[#120f22]/80 border border-white/10 backdrop-blur-xl shadow-glass-card transition-all duration-300">
 
           {/* Status Message Alert */}
           {status && (
@@ -111,7 +117,19 @@ export default function Login() {
             />
           )}
 
-
+          {/* Admin Notice Banner (smooth slide & expand transition) */}
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              role === 'admin'
+                ? 'max-h-24 opacity-100 mb-4'
+                : 'max-h-0 opacity-0 mb-0 pointer-events-none'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-purple-950/40 border border-purple-500/30 text-purple-200 text-xs sm:text-sm font-medium">
+              <ShieldCheck className="w-4.5 h-4.5 text-purple-400 flex-shrink-0" />
+              <span>Admin accounts are managed server-side.</span>
+            </div>
+          </div>
 
           <form onSubmit={handleSubmit} noValidate>
             {/* Email Address */}
@@ -146,13 +164,13 @@ export default function Login() {
             />
 
             {/* Remember Me & Forgot Password Row */}
-            <div className="flex items-center justify-between mt-1 mb-5 text-xs sm:text-sm">
-              <label className="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+            <div className="flex items-center justify-between mt-2 mb-6 text-xs sm:text-sm">
+              <label className="flex items-center gap-2.5 text-slate-300 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded bg-[#1c1833] border-white/20 text-purple-600 focus:ring-purple-500 focus:ring-offset-0 focus:ring-offset-transparent accent-purple-600 transition"
+                  className="w-4.5 h-4.5 rounded bg-[#1c1833] border-white/20 text-purple-600 focus:ring-purple-500 focus:ring-offset-0 focus:ring-offset-transparent accent-purple-600 transition"
                 />
                 <span className="text-slate-300 font-medium whitespace-nowrap">Remember me</span>
               </label>
@@ -167,23 +185,29 @@ export default function Login() {
 
             {/* Primary Submit Button */}
             <PrimaryButton type="submit" loading={loading}>
-              {role === 'admin' ? 'Admin Log In' : 'Log In'}
+              <span key={role} className="animate-fadeIn">
+                {role === 'admin' ? 'Admin Log In' : 'Log In'}
+              </span>
             </PrimaryButton>
           </form>
 
-          {/* Social Login Options (CUSTOMER ONLY) */}
-          {role === 'customer' && (
-            <>
-              <AuthDivider text="or continue with" />
-              <SocialLoginButton
-                onClick={handleGoogleLogin}
-                text="Continue with Google"
-              />
-            </>
-          )}
+          {/* Social Login Options (CUSTOMER ONLY — smooth height & opacity collapse) */}
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              role === 'customer'
+                ? 'max-h-36 opacity-100'
+                : 'max-h-0 opacity-0 pointer-events-none'
+            }`}
+          >
+            <AuthDivider text="or continue with" />
+            <SocialLoginButton
+              onClick={handleGoogleLogin}
+              text="Continue with Google"
+            />
+          </div>
 
-          {/* Footer Navigation Link */}
-          <div className="mt-4 text-center text-xs sm:text-sm text-slate-400">
+          {/* Footer Navigation Link with smooth cross-fade */}
+          <div key={role + '-footer'} className="mt-5 text-center text-xs sm:text-sm text-slate-400 animate-fadeIn">
             {role === 'customer' ? (
               <p>
                 Don't have an account?{' '}
@@ -195,7 +219,7 @@ export default function Login() {
                 </Link>
               </p>
             ) : (
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11.5px] text-slate-500">
                 Unauthorized access to the admin portal is strictly monitored.
               </p>
             )}

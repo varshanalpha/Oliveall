@@ -76,3 +76,19 @@
 .animate-neon-pulse {
   animation: neonPulse 3.5s ease-in-out infinite;
 }
+
+/* Smooth fade and subtle scale for switching views */
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeInSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

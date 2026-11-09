@@ -143,22 +143,22 @@ export default function OtpVerificationModal({
   return (
     <div className="w-full flex flex-col items-center animate-fadeIn">
       {/* Top Security Emblem */}
-      <div className="relative mb-3 flex items-center justify-center">
-        <div className="w-14 h-14 rounded-full bg-purple-600/20 border border-purple-500/40 flex items-center justify-center shadow-[0_0_25px_rgba(168,85,247,0.4)]">
+      <div className="relative mb-3.5 flex items-center justify-center">
+        <div className="w-16 h-16 rounded-full bg-purple-600/20 border border-purple-500/40 flex items-center justify-center shadow-[0_0_25px_rgba(168,85,247,0.45)]">
           {isVerified ? (
-            <CheckCircle2 className="w-7 h-7 text-emerald-400 animate-bounce" />
+            <CheckCircle2 className="w-8 h-8 text-emerald-400 animate-bounce" />
           ) : (
-            <ShieldCheck className="w-7 h-7 text-purple-400" />
+            <ShieldCheck className="w-8 h-8 text-purple-400" />
           )}
         </div>
       </div>
 
       {/* Headings */}
-      <div className="text-center mb-4">
-        <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+      <div className="text-center mb-5">
+        <h2 className="text-2xl sm:text-[1.85rem] font-extrabold text-white tracking-tight leading-tight">
           Verify Your Email
         </h2>
-        <p className="text-xs text-slate-300 mt-1.5 max-w-xs mx-auto leading-relaxed">
+        <p className="text-xs sm:text-sm text-slate-300 mt-1.5 max-w-xs mx-auto leading-relaxed">
           We've sent a 6-digit verification code to
           <span className="block font-semibold text-purple-300 break-all mt-0.5">
             {email}
@@ -167,7 +167,7 @@ export default function OtpVerificationModal({
       </div>
 
       {/* Main Glass Card */}
-      <div className="w-full p-4 sm:p-6 rounded-3xl bg-[#120f22]/85 border border-white/10 backdrop-blur-xl shadow-glass-card">
+      <div className="w-full p-5 sm:p-8 rounded-3xl bg-[#120f22]/85 border border-white/10 backdrop-blur-xl shadow-glass-card">
         
         {/* Status Message */}
         {status && (

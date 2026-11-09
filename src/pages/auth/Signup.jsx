@@ -106,13 +106,13 @@ export default function Signup() {
         <div className="w-full flex flex-col items-center">
           
           {/* Top Logo & Branding */}
-          <div className="mb-3">
+          <div className="mb-4">
             <AuthBranding />
           </div>
 
           {/* Heading */}
-          <div className="text-center mb-3.5">
-            <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+          <div className="text-center mb-5">
+            <h2 className="text-2xl sm:text-[1.85rem] font-extrabold text-white tracking-tight leading-tight">
               Create Account
             </h2>
           </div>
@@ -125,7 +125,7 @@ export default function Signup() {
           />
 
           {/* Glass Form Card */}
-          <div className="w-full p-4 sm:p-6 rounded-3xl bg-[#120f22]/80 border border-white/10 backdrop-blur-xl shadow-glass-card">
+          <div className="w-full p-5 sm:p-8 rounded-3xl bg-[#120f22]/80 border border-white/10 backdrop-blur-xl shadow-glass-card">
             
             {status && (
               <StatusMessage

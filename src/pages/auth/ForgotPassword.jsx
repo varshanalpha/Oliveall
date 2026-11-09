@@ -47,22 +47,22 @@ export default function ForgotPassword() {
       <div className="w-full flex flex-col items-center">
         
         {/* Top Logo & Branding */}
-        <div className="mb-5 sm:mb-6">
+        <div className="mb-4">
           <AuthBranding />
         </div>
 
         {/* Page Headings */}
-        <div className="text-center mb-6">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
+        <div className="text-center mb-5">
+          <h2 className="text-2xl sm:text-[1.85rem] font-extrabold text-white tracking-tight leading-tight flex items-center justify-center gap-2">
             <span>Reset Password</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-400 mt-2 max-w-xs mx-auto leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">
             Enter your registered email and we'll send you recovery instructions.
           </p>
         </div>
 
         {/* Form Container */}
-        <div className="w-full p-5 sm:p-7 rounded-3xl bg-[#120f22]/75 border border-white/10 backdrop-blur-xl shadow-glass-card">
+        <div className="w-full p-5 sm:p-8 rounded-3xl bg-[#120f22]/80 border border-white/10 backdrop-blur-xl shadow-glass-card">
           
           {status && (
             <StatusMessage
