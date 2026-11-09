@@ -157,7 +157,7 @@ export default function ConfirmBooking() {
       <div className="relative z-10 w-full max-w-[465px] sm:max-w-xl mx-auto px-4 sm:px-5 py-3 sm:py-5 flex-1 flex flex-col gap-3.5 sm:gap-4 pb-10">
         
         {/* 1. Header with Back Button and Centered Oliveal Branding */}
-        <header className="flex items-center justify-between min-h-[76px] sm:min-h-[88px] relative pt-1">
+        <header className="flex items-center justify-between min-h-[96px] sm:min-h-[110px] relative pt-1">
           <button
             type="button"
             onClick={handleEdit}

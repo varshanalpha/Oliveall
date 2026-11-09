@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom';
 export default function StationCard({ station }) {
   const navigate = useNavigate();
 
-  const isAvailable = station.isAvailable;
-
   const handleClick = () => {
     navigate(`/book-slot?station=${station.id}`);
   };
@@ -30,7 +28,7 @@ export default function StationCard({ station }) {
       </div>
 
       {/* 2. Graphic Stage: Photorealistic Equipment */}
-      <div className="relative w-full h-28 sm:h-32 rounded-2xl overflow-hidden flex items-center justify-center mb-2">
+      <div className="relative w-full h-28 sm:h-32 rounded-2xl overflow-hidden flex items-center justify-center mb-1.5">
         {/* Soft Ambient Purple Environmental Backlight */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_50%,_rgba(168,85,247,0.22)_0%,_transparent_70%)] pointer-events-none" />
 
@@ -46,28 +44,13 @@ export default function StationCard({ station }) {
       </div>
 
       {/* 3. Station Name & Category */}
-      <div className="mb-2.5">
+      <div className="pt-1">
         <h4 className="text-base sm:text-lg font-black text-white tracking-tight leading-tight group-hover:text-purple-200 transition-colors">
           {station.name}
         </h4>
         <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 font-medium">
           {station.category}
         </p>
-      </div>
-
-      {/* 4. Bottom Status Pill */}
-      <div>
-        {isAvailable ? (
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Available</span>
-          </div>
-        ) : (
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[10.5px] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-            <span className="truncate max-w-[120px]">{station.badgeText}</span>
-          </div>
-        )}
       </div>
 
     </div>

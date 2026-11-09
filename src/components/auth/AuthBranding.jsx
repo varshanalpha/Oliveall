@@ -15,8 +15,8 @@ export default function AuthBranding({ size = 'md', className = '' }) {
       shadow: 'drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)] drop-shadow-[0_0_6px_rgba(168,85,247,0.25)]',
     },
     sm: {
-      img: 'h-[72px] sm:h-[84px]',
-      shadow: 'drop-shadow-[0_6px_16px_rgba(0,0,0,0.85)] drop-shadow-[0_0_10px_rgba(168,85,247,0.3)]',
+      img: 'h-[105px] sm:h-[118px]',
+      shadow: 'drop-shadow-[0_8px_20px_rgba(0,0,0,0.85)] drop-shadow-[0_0_12px_rgba(168,85,247,0.3)]',
     },
     md: {
       img: 'h-36 sm:h-44',

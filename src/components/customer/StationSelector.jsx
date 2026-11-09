@@ -39,11 +39,7 @@ export default function StationSelector({ selectedStation, onSelectStation }) {
               {selectedStation.category}
             </p>
 
-            {/* Availability Pill */}
-            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Available</span>
-            </div>
+
           </div>
         </div>
 
@@ -81,8 +77,8 @@ export default function StationSelector({ selectedStation, onSelectStation }) {
                     setDropdownOpen(false);
                   }}
                   className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition ${isSelected
-                      ? 'bg-purple-600/30 text-white border border-purple-500/40'
-                      : 'hover:bg-white/[0.06] text-slate-300 hover:text-white'
+                    ? 'bg-purple-600/30 text-white border border-purple-500/40'
+                    : 'hover:bg-white/[0.06] text-slate-300 hover:text-white'
                     }`}
                 >
                   <div className="flex items-center gap-2.5">
