@@ -1,0 +1,62 @@
+# ==========================================
+# OLIVEAL GAMING ZONE — GIT IGNORE CONFIG
+# ==========================================
+
+# 1. Dependencies (NEVER push node_modules to GitHub - install via 'npm install')
+node_modules/
+.pnp
+.pnp.js
+
+# 2. Production Build Artifacts (Compiled Vite output)
+dist/
+dist-ssr/
+build/
+*.local
+
+# 3. Environment Variables & Secret Keys (CRITICAL: Protect Supabase & Razorpay keys)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+!.env.example
+
+# 4. Logs & Debug Output
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# 5. Operating System Files (macOS & Windows)
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 6. Code Editor & IDE Configurations
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.sublime-workspace
+
+# 7. Local Scratch, Temporary Archives & Agent Dirs
+images 2/
+*.zip
+.gemini/
+.turbo/
+.eslintcache
+coverage/
+.vercel
+.netlify
+
