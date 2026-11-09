@@ -4,7 +4,9 @@ import Login from '../pages/auth/Login';
 import Signup from '../pages/auth/Signup';
 import ForgotPassword from '../pages/auth/ForgotPassword';
 import ResetPassword from '../pages/auth/ResetPassword';
-import CustomerDashboard from '../pages/customer/Dashboard';
+import CustomerHome from '../pages/customer/CustomerHome';
+import BookSlot from '../pages/customer/BookSlot';
+import MyBookings from '../pages/customer/MyBookings';
 import AdminDashboard from '../pages/admin/Dashboard';
 import ProtectedRoute from './ProtectedRoute';
 import AdminRoute from './AdminRoute';
@@ -92,7 +94,23 @@ export default function AppRoutes() {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <CustomerDashboard />
+            <CustomerHome />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/book-slot"
+        element={
+          <ProtectedRoute>
+            <BookSlot />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-bookings"
+        element={
+          <ProtectedRoute>
+            <MyBookings />
           </ProtectedRoute>
         }
       />
