@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   Gamepad2,
 } from 'lucide-react';
+import AuthBranding from '../../components/auth/AuthBranding';
 import BookingProgress from '../../components/customer/BookingProgress';
 import SelectedStationCard from '../../components/customer/SelectedStationCard';
 import BookingDetailsCard from '../../components/customer/BookingDetailsCard';
@@ -156,7 +157,7 @@ export default function ConfirmBooking() {
       <div className="relative z-10 w-full max-w-[465px] sm:max-w-xl mx-auto px-4 sm:px-5 py-3 sm:py-5 flex-1 flex flex-col gap-3.5 sm:gap-4 pb-10">
         
         {/* 1. Header with Back Button and Centered Oliveal Branding */}
-        <header className="flex items-center justify-between min-h-[50px] relative pt-1">
+        <header className="flex items-center justify-between min-h-[76px] sm:min-h-[88px] relative pt-1">
           <button
             type="button"
             onClick={handleEdit}
@@ -166,18 +167,9 @@ export default function ConfirmBooking() {
             <ArrowLeft className="w-5 h-5 text-slate-200" />
           </button>
 
-          {/* Centered Logo Branding */}
-          <div className="absolute inset-x-0 flex flex-col items-center justify-center pointer-events-none">
-            <div className="relative">
-              <Gamepad2 className="w-6 h-6 text-fuchsia-400 drop-shadow-[0_0_12px_rgba(217,70,239,0.9)]" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-fuchsia-400 blur-[1px]" />
-            </div>
-            <span className="text-sm font-black text-white tracking-wider font-sans">
-              Oliveal
-            </span>
-            <span className="text-[8px] tracking-[0.25em] text-purple-300 font-bold -mt-0.5 uppercase">
-              Gaming Zone
-            </span>
+          {/* Centered Official Logo Branding */}
+          <div className="absolute inset-x-0 flex items-center justify-center pointer-events-none">
+            <AuthBranding size="sm" />
           </div>
 
           {/* Spacer for symmetry */}

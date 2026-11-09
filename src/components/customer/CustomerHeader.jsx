@@ -20,8 +20,8 @@ export default function CustomerHeader({ activeRoute = 'dashboard' }) {
 
   return (
     <>
-      <header className="relative z-30 w-full border-b border-white/[0.08] bg-[#0c0a1a]/90 backdrop-blur-xl pt-[max(env(safe-area-inset-top),1rem)] pb-3 px-4 sm:px-6 transition-all">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 min-h-[58px]">
+      <header className="relative z-30 w-full border-b border-white/[0.08] bg-[#0c0a1a]/90 backdrop-blur-xl pt-[max(env(safe-area-inset-top),0.75rem)] pb-2.5 px-4 sm:px-6 transition-all">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 min-h-[76px] sm:min-h-[88px]">
           
           {/* Left: Mobile Navigation Drawer Toggle */}
           <div className="w-10 flex items-center justify-start shrink-0">

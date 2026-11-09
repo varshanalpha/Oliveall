@@ -47,15 +47,17 @@ export default function BookingQrModal({ isOpen, booking, onClose }) {
 
         {/* Modal Top Bar */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.08] relative z-10">
-          <div className="flex items-center gap-2 text-left">
-            <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-300">
-              <QrCode className="w-4 h-4" />
-            </div>
+          <div className="flex items-center gap-2.5 text-left">
+            <img
+              src="/assets/images/oliveal-logo.png"
+              alt="Oliveal Gaming Zone"
+              className="w-9 h-9 object-contain filter drop-shadow-[0_0_10px_rgba(168,85,247,0.7)]"
+            />
             <div>
-              <h3 className="text-sm sm:text-base font-black text-white tracking-tight">
+              <h3 className="text-sm sm:text-base font-black text-white tracking-tight leading-tight">
                 Check-In QR Pass
               </h3>
-              <p className="text-[10.5px] text-slate-400 font-medium">
+              <p className="text-[10.5px] text-purple-300 font-medium">
                 Oliveal Gaming Zone
               </p>
             </div>
