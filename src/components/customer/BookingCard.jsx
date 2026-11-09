@@ -11,11 +11,12 @@ export default function BookingCard({ booking }) {
       <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.07]">
         <div className="flex items-center gap-3">
           {/* Station Image */}
-          <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-b from-[#181233] to-[#0c0918] border border-white/[0.08] flex items-center justify-center p-1.5 shrink-0">
+          <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-b from-[#140e2b]/90 via-[#0e0a1e]/90 to-[#090715] border border-purple-500/20 flex items-center justify-center p-1 shrink-0 overflow-hidden shadow-inner">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(168,85,247,0.25)_0%,_transparent_75%)] pointer-events-none" />
             <img
               src={booking.image}
               alt={booking.stationName}
-              className="w-full h-full object-contain"
+              className="relative z-10 w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
             />
           </div>
 

@@ -189,8 +189,7 @@ export default function BookSlot() {
             loading={isSubmitting}
             disabled={!validation.isValid}
           >
-            <span>Confirm Booking</span>
-            <span className="ml-1 text-lg">→</span>
+            Confirm Booking
           </PrimaryButton>
         </div>
 

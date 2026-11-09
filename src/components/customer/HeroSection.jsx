@@ -21,13 +21,18 @@ export default function HeroSection() {
         </div>
 
         {/* Right Illuminated PS5 Gamepad Visual */}
-        <div className="relative w-28 h-24 sm:w-36 sm:h-28 flex items-center justify-center shrink-0">
+        <div className="relative w-32 h-26 sm:w-40 sm:h-30 flex items-center justify-center shrink-0">
+          {/* Subtle Ambient Backlight Halo */}
+          <div className="absolute inset-0 bg-purple-500/30 blur-2xl rounded-full scale-110 pointer-events-none" />
+
+          {/* Contact shadow beneath controller */}
+          <div className="absolute -bottom-1 w-24 h-5 bg-black/60 blur-md rounded-full pointer-events-none" />
+
           <img
             src="/assets/images/hero-controller.png"
-            alt="Gaming Controller"
-            className="w-full h-full object-contain filter drop-shadow-[0_5px_20px_rgba(168,85,247,0.45)] transform hover:scale-105 transition-transform duration-300"
+            alt="PlayStation 5 Wireless Controller"
+            className="relative z-10 w-full h-full object-contain filter drop-shadow-[0_8px_24px_rgba(0,0,0,0.85)] transform hover:scale-105 transition-transform duration-300"
             onError={(e) => {
-              // Fallback if image fails to render
               e.currentTarget.style.display = 'none';
             }}
           />

@@ -22,19 +22,23 @@ export default function StationCard({ station }) {
       }}
       className="group relative flex flex-col justify-between p-3.5 sm:p-4 rounded-3xl bg-[#120f22]/85 hover:bg-[#16122d]/90 border border-white/[0.09] hover:border-purple-500/40 backdrop-blur-xl shadow-glass-card hover:shadow-[0_0_24px_rgba(168,85,247,0.22)] transition-all duration-300 cursor-pointer active:scale-[0.98] overflow-hidden"
     >
-      {/* Top Graphic Area */}
-      <div className="relative w-full h-28 sm:h-32 rounded-2xl bg-gradient-to-b from-[#181233] to-[#0d0a1a] border border-white/[0.06] overflow-hidden flex items-center justify-center mb-3">
-        {/* Subtle Ambient Glow behind Station */}
-        <div className="absolute inset-0 bg-purple-600/15 blur-xl pointer-events-none" />
+      {/* Top Graphic Area: Integrated Equipment Stage */}
+      <div className="relative w-full h-36 sm:h-40 rounded-2xl overflow-hidden flex items-center justify-center mb-2.5">
+        {/* Soft Ambient Purple Environmental Backlight */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,_rgba(168,85,247,0.22)_0%,_transparent_70%)] pointer-events-none" />
+        
+        {/* Grounding Contact Shadow at the Base */}
+        <div className="absolute bottom-1 inset-x-6 h-5 bg-black/60 blur-md rounded-full pointer-events-none" />
 
+        {/* Photorealistic Product Image */}
         <img
           src={station.image}
           alt={station.name}
-          className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300 drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+          className="relative z-10 w-full h-full object-contain p-1 group-hover:scale-105 transition-transform duration-300 drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]"
         />
 
         {/* Category Pill Tag top right */}
-        <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-purple-900/60 border border-purple-400/30 text-[10px] font-bold text-purple-200 uppercase tracking-wider backdrop-blur-md">
+        <span className="absolute top-2 right-2 z-20 px-2.5 py-0.5 rounded-full bg-purple-950/70 border border-purple-400/35 text-[10px] font-bold text-purple-200 uppercase tracking-wider backdrop-blur-md shadow-sm">
           {station.tag}
         </span>
       </div>

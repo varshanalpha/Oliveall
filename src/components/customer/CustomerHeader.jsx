@@ -20,26 +20,31 @@ export default function CustomerHeader({ activeRoute = 'dashboard' }) {
 
   return (
     <>
-      <header className="relative z-30 w-full border-b border-white/[0.08] bg-[#0c0a1a]/85 backdrop-blur-xl">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <header className="relative z-30 w-full border-b border-white/[0.08] bg-[#0c0a1a]/90 backdrop-blur-xl pt-[max(env(safe-area-inset-top),1rem)] pb-3 px-4 sm:px-6 transition-all">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 min-h-[58px]">
           
           {/* Left: Mobile Navigation Drawer Toggle */}
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Open Navigation Menu"
-            className="w-10 h-10 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 flex items-center justify-center text-slate-200 hover:text-white transition active:scale-95 shadow-md"
-          >
-            <Menu className="w-5 h-5 text-slate-200" />
-          </button>
+          <div className="w-10 flex items-center justify-start shrink-0">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open Navigation Menu"
+              className="w-10 h-10 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 flex items-center justify-center text-slate-200 hover:text-white transition active:scale-95 shadow-md"
+            >
+              <Menu className="w-5 h-5 text-slate-200" />
+            </button>
+          </div>
 
-          {/* Center: Oliveal Gaming Zone Branding */}
-          <Link to="/dashboard" className="flex items-center justify-center cursor-pointer hover:opacity-95 transition">
+          {/* Center: Oliveal Gaming Zone Branding (Vertically Balanced & Completely Visible) */}
+          <Link
+            to="/dashboard"
+            className="flex flex-col items-center justify-center cursor-pointer hover:opacity-95 transition py-0.5 px-2"
+          >
             <AuthBranding size="sm" />
           </Link>
 
           {/* Right: Notifications Bell & Customer Profile Avatar */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-end gap-2.5 shrink-0">
             
             {/* Notification Bell with Pink Unread Indicator Dot */}
             <div className="relative">
