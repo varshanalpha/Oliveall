@@ -22,7 +22,7 @@ import {
   calculatePlatformFee,
   calculateTotalAmount,
 } from '../../utils/pricingUtils';
-import { formatDate } from '../../utils/bookingTimeUtils';
+import { formatDate, isSlotStartInPast } from '../../utils/bookingTimeUtils';
 
 /**
  * OLIVEAL GAMING ZONE — CONFIRM BOOKING PAGE
@@ -108,11 +108,27 @@ export default function ConfirmBooking() {
   }, [stationCharge, platformFee]);
 
   // User Interactive Controls
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
+
+  useEffect(() => {
+    const updateNow = () => setNowMs(Date.now());
+    const timer = setInterval(updateNow, 15000);
+    window.addEventListener('focus', updateNow);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', updateNow);
+    };
+  }, []);
+
+  const isPastSlot = useMemo(
+    () => isSlotStartInPast(bookingIsoDate, startTime, nowMs),
+    [bookingIsoDate, startTime, nowMs]
+  );
 
   // Navigate back to BookSlot preserving selections
   const handleEdit = () => {
@@ -130,6 +146,13 @@ export default function ConfirmBooking() {
 
   // Submit and persist booking to Supabase via atomic RPC
   const handleConfirmAndPay = async () => {
+    const freshNowMs = Date.now();
+    if (isSlotStartInPast(bookingIsoDate, startTime, freshNowMs)) {
+      setNowMs(freshNowMs);
+      setSubmitError('Selected start time has already passed. Please go back and choose an upcoming time.');
+      return;
+    }
+
     if (!agreedToTerms || isSubmitting) return;
 
     setSubmitError(null);
@@ -249,19 +272,22 @@ export default function ConfirmBooking() {
           onOpenTerms={() => setShowTermsModal(true)}
         />
 
-        {/* Server Validation / Conflict Alert */}
-        {submitError && (
+        {/* Server Validation / Conflict / Expired-Time Alert */}
+        {(isPastSlot || submitError) && (
           <StatusMessage
             type="error"
-            message={submitError}
-            onClose={() => setSubmitError(null)}
+            message={
+              submitError ||
+              'Selected start time has already passed. Please tap Edit above to choose an upcoming time slot.'
+            }
+            onClose={submitError ? () => setSubmitError(null) : undefined}
           />
         )}
 
         {/* 6. Full-Width Confirm Booking & Pay CTA Button */}
         <div className="mt-1">
           <ConfirmBookingButton
-            disabled={!agreedToTerms}
+            disabled={!agreedToTerms || isPastSlot}
             loading={isSubmitting}
             onClick={handleConfirmAndPay}
           />

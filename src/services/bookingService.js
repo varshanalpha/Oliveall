@@ -9,6 +9,7 @@ import {
   buildKolkataTimestamp,
   getKolkataDayBounds,
   formatBookingTimesKolkata,
+  isSlotStartInPast,
 } from '../utils/bookingTimeUtils';
 
 const STATUS_LABELS = {
@@ -208,6 +209,10 @@ export async function createSupabaseBooking({
     }
 
     const startAt = buildKolkataTimestamp(isoDate, startTime);
+
+    if (!isoDate || !startTime || Number.isNaN(Date.parse(startAt)) || isSlotStartInPast(isoDate, startTime, Date.now())) {
+      throw new Error('This time slot has already passed. Please choose an upcoming time.');
+    }
 
     const { data, error } = await supabase.rpc('create_customer_booking', {
       p_station_id: station.id,

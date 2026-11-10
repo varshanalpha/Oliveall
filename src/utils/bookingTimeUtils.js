@@ -199,3 +199,60 @@ export function formatBookingTimesKolkata(startAtIso, endAtIso) {
   };
 }
 
+/**
+ * Resolves exact UTC epoch milliseconds for an IST calendar date ('YYYY-MM-DD')
+ * and start time ('HH:mm' or minutes since 00:00).
+ */
+export function getSlotStartEpochMs(isoDate, startTimeOrMinutes) {
+  if (!isoDate) return NaN;
+  let hh = '00';
+  let mm = '00';
+  let extraDays = 0;
+
+  if (typeof startTimeOrMinutes === 'number') {
+    extraDays = Math.floor(startTimeOrMinutes / 1440);
+    const mod = ((startTimeOrMinutes % 1440) + 1440) % 1440;
+    hh = String(Math.floor(mod / 60)).padStart(2, '0');
+    mm = String(mod % 60).padStart(2, '0');
+  } else if (typeof startTimeOrMinutes === 'string') {
+    const [hStr = '00', mStr = '00'] = startTimeOrMinutes.split(':');
+    hh = String(Number(hStr) || 0).padStart(2, '0');
+    mm = String(Number(mStr) || 0).padStart(2, '0');
+  }
+
+  const baseMs = new Date(`${isoDate}T${hh}:${mm}:00+05:30`).getTime();
+  return Number.isNaN(baseMs) ? NaN : baseMs + extraDays * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Returns true if the booking slot start instant in Asia/Kolkata has already passed (<= now).
+ */
+export function isSlotStartInPast(isoDate, startTimeOrMinutes, referenceDate = new Date()) {
+  const slotMs = getSlotStartEpochMs(isoDate, startTimeOrMinutes);
+  const refMs = new Date(referenceDate).getTime();
+  if (Number.isNaN(slotMs) || Number.isNaN(refMs)) return false;
+  return slotMs <= refMs;
+}
+
+/**
+ * Picks a clean default upcoming 15-minute start time ('HH:mm') in Asia/Kolkata.
+ * On Today, advances to the next 15-minute interval strictly after referenceDate;
+ * on future dates, defaults to '18:30'.
+ */
+export function getDefaultStartTimeForDate(isoDate, referenceDate = new Date()) {
+  const istNow = getKolkataParts(referenceDate);
+  if (!isoDate || isoDate !== istNow.isoDate) {
+    return '18:30';
+  }
+
+  const nowMinutes = istNow.hour * 60 + istNow.minute;
+  const nextSlotMinutes = Math.floor(nowMinutes / 15) * 15 + 15;
+  if (nextSlotMinutes >= 1440) {
+    return '23:45';
+  }
+
+  const h = String(Math.floor(nextSlotMinutes / 60)).padStart(2, '0');
+  const m = String(nextSlotMinutes % 60).padStart(2, '0');
+  return `${h}:${m}`;
+}
+

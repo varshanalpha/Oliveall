@@ -2,24 +2,46 @@
  * OLIVEAL GAMING ZONE — BOOKING AVAILABILITY & INTERVAL OVERLAP ENGINE
  * 
  * Mathematical Formulation:
- * Uses half-open intervals [start, end)
- * Collision condition: newStart < existingEnd && newEnd > existingStart
+ * 1. Future time guard (in Asia/Kolkata): slot start must be strictly in the future (> now)
+ * 2. Half-open intervals [start, end): Collision condition newStart < existingEnd && newEnd > existingStart
  */
 
+import { isSlotStartInPast } from './bookingTimeUtils.js';
+
 /**
- * Checks whether [newStartMinutes, newEndMinutes) collides with any existing booked intervals.
+ * Checks whether [newStartMinutes, newEndMinutes) is in the future and free of collisions.
  * 
  * @param {number} newStartMinutes - Start minutes from 00:00 on the booking date
  * @param {number} newEndMinutes - End minutes (can exceed 1440 if crossing midnight)
  * @param {Array} existingBookedSlots - Array of { startMinutes, endMinutes, startTime, endTime, players }
- * @returns {Object} { isValid: boolean, hasOverlap: boolean, conflictingSlot?: Object, errorMessage?: string }
+ * @param {Object} options - Optional { bookingIsoDate: 'YYYY-MM-DD', referenceDate: Date|number }
+ * @returns {Object} { isValid: boolean, isPastTime: boolean, hasOverlap: boolean, conflictingSlot?: Object, errorMessage?: string }
  */
-export function validateSlotAvailability(newStartMinutes, newEndMinutes, existingBookedSlots = []) {
+export function validateSlotAvailability(
+  newStartMinutes,
+  newEndMinutes,
+  existingBookedSlots = [],
+  options = {}
+) {
   if (newStartMinutes === undefined || newEndMinutes === undefined || newEndMinutes <= newStartMinutes) {
     return {
       isValid: false,
+      isPastTime: false,
       hasOverlap: false,
+      conflictingSlot: null,
       errorMessage: 'Please select a valid start time and duration.',
+    };
+  }
+
+  const { bookingIsoDate = null, referenceDate = new Date() } = options;
+
+  if (bookingIsoDate && isSlotStartInPast(bookingIsoDate, newStartMinutes, referenceDate)) {
+    return {
+      isValid: false,
+      isPastTime: true,
+      hasOverlap: false,
+      conflictingSlot: null,
+      errorMessage: 'This time slot has already passed. Please choose an upcoming time.',
     };
   }
 
@@ -35,6 +57,7 @@ export function validateSlotAvailability(newStartMinutes, newEndMinutes, existin
     if (isOverlapping) {
       return {
         isValid: false,
+        isPastTime: false,
         hasOverlap: true,
         conflictingSlot: existing,
         errorMessage: 'This time slot is unavailable. Please choose another time.',
@@ -44,6 +67,7 @@ export function validateSlotAvailability(newStartMinutes, newEndMinutes, existin
 
   return {
     isValid: true,
+    isPastTime: false,
     hasOverlap: false,
     conflictingSlot: null,
     errorMessage: null,

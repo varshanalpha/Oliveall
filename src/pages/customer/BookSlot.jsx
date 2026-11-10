@@ -12,7 +12,7 @@ import { getStationById, STATIONS as DEFAULT_STATIONS } from '../../services/moc
 import { fetchActiveStations, getCachedStations, resolveStationFromList } from '../../services/stationService';
 import { fetchBookedSlotsForStation, getCachedBookedSlots } from '../../services/bookingService';
 import { getEligibleBookingDates } from '../../utils/dateEligibility';
-import { calculateEndTime } from '../../utils/bookingTimeUtils';
+import { calculateEndTime, getDefaultStartTimeForDate, isSlotStartInPast } from '../../utils/bookingTimeUtils';
 import { validateSlotAvailability } from '../../utils/bookingAvailability';
 
 export default function BookSlot() {
@@ -80,9 +80,22 @@ export default function BookSlot() {
     }
   }, [selectedStation?.id, isSimulator, players]);
 
-  // 4. Time Selection State (15-min intervals, strictly 60, 90, 120 min)
-  const [startTime, setStartTime] = useState(() => editState.startTime || '18:30');
+  // 4. Live Clock & Time Selection State (15-min intervals, strictly 60, 90, 120 min)
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [startTime, setStartTime] = useState(
+    () => editState.startTime || getDefaultStartTimeForDate(selectedDate?.isoDate)
+  );
   const [duration, setDuration] = useState(() => editState.duration || 90);
+
+  useEffect(() => {
+    const updateNow = () => setNowMs(Date.now());
+    const interval = setInterval(updateNow, 15000);
+    window.addEventListener('focus', updateNow);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', updateNow);
+    };
+  }, []);
 
   // 5. Live Booked Slots for Station & Date (anonymized from Supabase RPC)
   const [bookedSlots, setBookedSlots] = useState(
@@ -120,18 +133,27 @@ export default function BookSlot() {
     return calculateEndTime(startTime, duration);
   }, [startTime, duration]);
 
-  // 8. Overlap Validation Engine (half-open [start, end) interval collisions)
+  // 8. Overlap & Future-Time Validation Engine
   const validation = useMemo(() => {
-    if (!calculatedSlot) return { isValid: false, hasOverlap: false };
+    if (!calculatedSlot) return { isValid: false, isPastTime: false, hasOverlap: false, errorMessage: null };
     return validateSlotAvailability(
       calculatedSlot.startMinutes,
       calculatedSlot.endMinutes,
-      bookedSlots
+      bookedSlots,
+      {
+        bookingIsoDate: selectedDate?.isoDate,
+        referenceDate: nowMs,
+      }
     );
-  }, [calculatedSlot, bookedSlots]);
+  }, [calculatedSlot, bookedSlots, selectedDate?.isoDate, nowMs]);
 
   // Handle Confirm Booking Submission — Route to Confirm Booking Page
   const handleConfirmBooking = () => {
+    const freshNowMs = Date.now();
+    if (isSlotStartInPast(selectedDate?.isoDate, startTime, freshNowMs)) {
+      setNowMs(freshNowMs);
+      return;
+    }
     if (!validation.isValid) return;
 
     navigate('/confirm-booking', {
@@ -197,7 +219,10 @@ export default function BookSlot() {
         <DateSelector
           eligibleDates={eligibleDates}
           selectedDate={selectedDate}
-          onSelectDate={(date) => setSelectedDate(date)}
+          onSelectDate={(date) => {
+            setNowMs(Date.now());
+            setSelectedDate(date);
+          }}
         />
 
         {/* 3. Select Number of Players (1 Player vs 2 Players; Racing Simulator is strictly 1) */}
@@ -218,12 +243,18 @@ export default function BookSlot() {
         {/* 5. Create Your Slot (Start Time + Duration + Automatic End-Time) */}
         <SlotCreator
           startTime={startTime}
-          onSelectStartTime={(val) => setStartTime(val)}
+          onSelectStartTime={(val) => {
+            setNowMs(Date.now());
+            setStartTime(val);
+          }}
           duration={duration}
           onSelectDuration={(val) => setDuration(val)}
           calculatedSlot={calculatedSlot}
           players={players}
           overlapError={validation.hasOverlap}
+          errorMessage={validation.errorMessage}
+          selectedDateIso={selectedDate?.isoDate}
+          nowMs={nowMs}
         />
 
         {/* 6. Confirm Booking CTA */}

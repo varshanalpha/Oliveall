@@ -9,7 +9,7 @@ import CustomerHome from '../pages/customer/CustomerHome';
 import BookSlot from '../pages/customer/BookSlot';
 import ConfirmBooking from '../pages/customer/ConfirmBooking';
 import MyBookings from '../pages/customer/MyBookings';
-import AdminDashboard from '../pages/admin/Dashboard';
+import AdminDashboard from '../pages/admin/AdminDashboard';
 import ProtectedRoute from './ProtectedRoute';
 import AdminRoute from './AdminRoute';
 import AuthLayout from '../components/auth/AuthLayout';

@@ -291,6 +291,12 @@ BEGIN
       END IF;
     END IF;
 
+    IF TG_OP = 'INSERT' OR NEW.start_at IS DISTINCT FROM OLD.start_at THEN
+      IF NEW.start_at <= now() THEN
+        RAISE EXCEPTION 'Cannot book slots for times that have already passed. Please choose an upcoming time.';
+      END IF;
+    END IF;
+
     -- Authoritative server-side pricing computation
     IF v_station.station_type = 'simulator' THEN
       v_hourly_rate := COALESCE(v_station.hourly_rate_1p, 200);
