@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Calendar, ArrowRight, AlertCircle } from 'lucide-react';
 
 export const STATUS_BADGE_STYLES = {
@@ -9,16 +9,15 @@ export const STATUS_BADGE_STYLES = {
   muted: 'bg-white/10 text-[#A9A0BC] border border-white/15',
 };
 
-const HEADER_AND_PADDING_PX = 72;
-const FOOTER_PROMPT_HEIGHT_PX = 42;
-const ESTIMATED_ROW_HEIGHT_PX = 66;
 const GAP_ABOVE_NAV_PX = 14;
+// Exact footer height reservation: mt-1 (4px) + border-t (1px) + pt-2 (8px) + button/line (22px)
+const FOOTER_RESERVE_PX = 35;
 
-function RecentBookingsSkeleton({ rows = 4 }) {
+function RecentBookingsSkeleton({ rows = 5 }) {
   return (
-    <div className="divide-y divide-white/[0.08]" aria-hidden="true">
+    <div className="divide-y divide-white/[0.08] overflow-hidden" aria-hidden="true">
       {Array.from({ length: rows }).map((_, index) => (
-        <div key={index} className="py-3.5 flex items-center gap-3 animate-pulse">
+        <div key={index} className="py-2.5 sm:py-3 flex items-center gap-3 animate-pulse">
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="h-3.5 w-20 rounded bg-white/10" />
             <div className="h-3 w-16 rounded bg-white/[0.06]" />
@@ -35,7 +34,8 @@ function RecentBookingsSkeleton({ rows = 4 }) {
 /**
  * Displays live recent bookings from Supabase, sized dynamically so its bottom outline
  * stops cleanly just above the fixed bottom navigation bar without overlapping it.
- * Excess bookings trigger an explicit count + "View All" overflow control.
+ * Measures actual rendered DOM row heights to pack maximum bookings cleanly into all
+ * available vertical space, showing View All only when bookings exceed capacity.
  */
 export default function RecentBookings({
   bookings = [],
@@ -46,80 +46,152 @@ export default function RecentBookings({
   onViewAll,
 }) {
   const cardRef = useRef(null);
-  const [layoutBudget, setLayoutBudget] = useState({
-    cardHeight: 280,
-    maxVisibleRows: 4,
-  });
+  const bodyRef = useRef(null);
+  const headerRef = useRef(null);
+  const listRef = useRef(null);
+  const probeKeyRef = useRef('');
 
   const allBookings = Array.isArray(bookings) ? bookings : [];
   const effectiveTotal = Math.max(allBookings.length, Number(totalBookingsCount ?? 0));
+  const bookingsSignature = allBookings
+    .map((b) => `${b.id}:${b.timeRange?.length ?? 0}`)
+    .join('|');
+
+  const [cardHeight, setCardHeight] = useState(320);
+  const [visibleCount, setVisibleCount] = useState(allBookings.length);
+  const [isProbing, setIsProbing] = useState(true);
+  const [measureTick, setMeasureTick] = useState(0);
 
   useEffect(() => {
-    const computeLayout = () => {
-      const cardEl = cardRef.current;
-      if (!cardEl) return;
+    const triggerMeasure = () => setMeasureTick((t) => t + 1);
 
-      const cardDocTop = cardEl.getBoundingClientRect().top + window.scrollY;
-      const navEl =
-        document.querySelector('nav[aria-label="Admin bottom navigation"] > div') ||
-        document.querySelector('nav[aria-label="Admin bottom navigation"]');
+    window.addEventListener('resize', triggerMeasure);
+    window.visualViewport?.addEventListener('resize', triggerMeasure);
 
-      const viewportH = window.visualViewport?.height || window.innerHeight;
-      const navTop = navEl ? navEl.getBoundingClientRect().top : viewportH - 76;
-
-      const availableHeight = Math.max(
-        210,
-        Math.floor(navTop - cardDocTop - GAP_ABOVE_NAV_PX)
-      );
-
-      const rowsWithoutFooter = Math.max(
-        2,
-        Math.floor((availableHeight - HEADER_AND_PADDING_PX) / ESTIMATED_ROW_HEIGHT_PX)
-      );
-
-      const needsOverflowFooter = effectiveTotal > rowsWithoutFooter;
-      const maxVisibleRows = needsOverflowFooter
-        ? Math.max(
-            2,
-            Math.floor(
-              (availableHeight - HEADER_AND_PADDING_PX - FOOTER_PROMPT_HEIGHT_PX) /
-                ESTIMATED_ROW_HEIGHT_PX
-            )
-          )
-        : rowsWithoutFooter;
-
-      setLayoutBudget({
-        cardHeight: availableHeight,
-        maxVisibleRows,
-      });
-    };
-
-    const rafId = requestAnimationFrame(computeLayout);
-
-    window.addEventListener('resize', computeLayout);
-    window.visualViewport?.addEventListener('resize', computeLayout);
     let observer = null;
     if (typeof ResizeObserver !== 'undefined' && cardRef.current?.parentElement) {
-      observer = new ResizeObserver(computeLayout);
+      observer = new ResizeObserver(triggerMeasure);
       observer.observe(cardRef.current.parentElement);
     }
 
+    if (document?.fonts?.ready) {
+      document.fonts.ready.then(triggerMeasure).catch(() => {});
+    }
+
     return () => {
-      cancelAnimationFrame(rafId);
-      window.removeEventListener('resize', computeLayout);
-      window.visualViewport?.removeEventListener('resize', computeLayout);
+      window.removeEventListener('resize', triggerMeasure);
+      window.visualViewport?.removeEventListener('resize', triggerMeasure);
       observer?.disconnect();
     };
-  }, [effectiveTotal, loading]);
+  }, []);
 
-  const visibleBookings = allBookings.slice(0, layoutBudget.maxVisibleRows);
+  useLayoutEffect(() => {
+    const cardEl = cardRef.current;
+    if (!cardEl) return;
+
+    const cardRect = cardEl.getBoundingClientRect();
+    const cardDocTop = cardRect.top + window.scrollY;
+    const navEl =
+      document.querySelector('nav[aria-label="Admin bottom navigation"] > div') ||
+      document.querySelector('nav[aria-label="Admin bottom navigation"]');
+
+    const viewportH = window.visualViewport?.height || window.innerHeight;
+    const navTop = navEl ? navEl.getBoundingClientRect().top : viewportH - 76;
+
+    const availableCardHeight = Math.max(
+      210,
+      Math.floor(navTop - cardDocTop - GAP_ABOVE_NAV_PX)
+    );
+
+    if (cardHeight !== availableCardHeight) {
+      setCardHeight(availableCardHeight);
+      return;
+    }
+
+    if (loading || error || allBookings.length === 0) {
+      probeKeyRef.current = '';
+      if (visibleCount !== allBookings.length) {
+        setVisibleCount(allBookings.length);
+      }
+      if (isProbing) setIsProbing(false);
+      return;
+    }
+
+    const bodyEl = bodyRef.current;
+    const headerEl = headerRef.current;
+    const listEl = listRef.current;
+    if (!bodyEl || !headerEl || !listEl) return;
+
+    const cardWidth = Math.round(cardRect.width);
+    const targetProbeKey = `${bookingsSignature}|${effectiveTotal}|${availableCardHeight}|${cardWidth}`;
+
+    if (probeKeyRef.current !== targetProbeKey) {
+      if (visibleCount !== allBookings.length || !isProbing) {
+        setIsProbing(true);
+        setVisibleCount(allBookings.length);
+        return;
+      }
+
+      const cardBorderY = cardEl.offsetHeight - cardEl.clientHeight;
+      const bodyStyle = getComputedStyle(bodyEl);
+      const bodyPadY =
+        parseFloat(bodyStyle.paddingTop || '0') + parseFloat(bodyStyle.paddingBottom || '0');
+      const headerH = Math.ceil(headerEl.getBoundingClientRect().height);
+
+      const listBudgetNoFooter = Math.max(
+        72,
+        availableCardHeight - cardBorderY - bodyPadY - headerH
+      );
+      const listBudgetWithFooter = Math.max(60, listBudgetNoFooter - FOOTER_RESERVE_PX);
+
+      const rowEls = Array.from(listEl.children);
+      let fitWithoutFooter = 0;
+      let fitWithFooter = 0;
+      let runningH = 0;
+
+      for (let i = 0; i < rowEls.length; i++) {
+        runningH += rowEls[i].getBoundingClientRect().height;
+        if (runningH <= listBudgetNoFooter) {
+          fitWithoutFooter = i + 1;
+        }
+        if (runningH <= listBudgetWithFooter) {
+          fitWithFooter = i + 1;
+        }
+      }
+
+      fitWithoutFooter = Math.max(1, fitWithoutFooter);
+      fitWithFooter = Math.max(1, fitWithFooter);
+
+      const fitsAllWithoutFooter =
+        allBookings.length <= fitWithoutFooter && effectiveTotal <= fitWithoutFooter;
+
+      const nextVisibleCount = fitsAllWithoutFooter ? allBookings.length : fitWithFooter;
+
+      probeKeyRef.current = targetProbeKey;
+      setIsProbing(false);
+      setVisibleCount(nextVisibleCount);
+    }
+  }, [
+    allBookings.length,
+    bookingsSignature,
+    effectiveTotal,
+    loading,
+    error,
+    cardHeight,
+    visibleCount,
+    isProbing,
+    measureTick,
+  ]);
+
+  const visibleBookings = allBookings.slice(0, Math.min(allBookings.length, Math.max(1, visibleCount)));
   const hiddenCount = Math.max(0, effectiveTotal - visibleBookings.length);
+  const stretchRowsToFill = !isProbing && hiddenCount > 0 && visibleBookings.length > 0;
 
   return (
     <section
       ref={cardRef}
       aria-labelledby="recent-bookings-heading"
-      style={{ height: `${layoutBudget.cardHeight}px` }}
+      style={{ height: `${cardHeight}px` }}
       className="relative shrink-0 flex flex-col overflow-hidden rounded-2xl bg-[#120B20]/95 border border-purple-500/30 shadow-[0_8px_30px_rgba(0,0,0,0.45),0_0_26px_rgba(124,58,237,0.14)] backdrop-blur-md"
     >
       {/* Subtle bottom-center ambient neon highlight matching reference card */}
@@ -128,9 +200,15 @@ export default function RecentBookings({
         className="pointer-events-none absolute -bottom-10 left-1/2 -translate-x-1/2 w-56 h-16 rounded-full bg-[#9333EA]/25 blur-2xl"
       />
 
-      <div className="relative flex-1 min-h-0 flex flex-col px-4 pt-3.5 pb-3 sm:px-5 sm:pt-4 sm:pb-3.5">
+      <div
+        ref={bodyRef}
+        className="relative flex-1 min-h-0 flex flex-col px-4 pt-3.5 pb-2.5 sm:px-5 sm:pt-4 sm:pb-3"
+      >
         {/* Card Header */}
-        <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/[0.08] shrink-0 min-h-[34px]">
+        <div
+          ref={headerRef}
+          className="flex items-center justify-between gap-3 pb-2.5 border-b border-white/[0.08] shrink-0 min-h-[32px]"
+        >
           <div className="flex items-center gap-2.5 min-w-0">
             <Calendar className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-[#C4B5FD] shrink-0" aria-hidden="true" />
             <h2
@@ -160,7 +238,7 @@ export default function RecentBookings({
 
         {/* Content Body */}
         {loading ? (
-          <RecentBookingsSkeleton rows={Math.min(4, layoutBudget.maxVisibleRows)} />
+          <RecentBookingsSkeleton rows={5} />
         ) : error ? (
           <div className="flex-1 flex flex-col items-center justify-center py-5 px-2 text-center gap-2.5">
             <AlertCircle className="w-6 h-6 text-rose-400" aria-hidden="true" />
@@ -183,8 +261,13 @@ export default function RecentBookings({
             </p>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 flex flex-col justify-between">
-            <ul className="divide-y divide-white/[0.08] overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col">
+            <ul
+              ref={listRef}
+              className={`divide-y divide-white/[0.08] overflow-hidden ${
+                stretchRowsToFill ? 'flex-1 min-h-0 flex flex-col' : ''
+              }`}
+            >
               {visibleBookings.map((booking) => {
                 const badgeVariant = booking.statusInfo?.variant || 'muted';
                 const badgeClass = STATUS_BADGE_STYLES[badgeVariant] || STATUS_BADGE_STYLES.muted;
@@ -192,7 +275,9 @@ export default function RecentBookings({
                 return (
                   <li
                     key={booking.id}
-                    className="py-3 sm:py-3.5 grid grid-cols-[minmax(0,1fr)_52px_minmax(0,1.18fr)_68px] min-[390px]:grid-cols-[minmax(0,1.02fr)_56px_minmax(0,1.22fr)_72px] sm:grid-cols-[minmax(0,1.15fr)_72px_minmax(0,1.3fr)_82px] items-center gap-1.5 sm:gap-2.5"
+                    className={`${
+                      stretchRowsToFill ? 'grow shrink-0 basis-auto ' : ''
+                    }py-2.5 sm:py-3 grid grid-cols-[minmax(0,1fr)_52px_minmax(0,1.18fr)_68px] min-[390px]:grid-cols-[minmax(0,1.02fr)_56px_minmax(0,1.22fr)_72px] sm:grid-cols-[minmax(0,1.15fr)_72px_minmax(0,1.3fr)_82px] items-center gap-1.5 sm:gap-2.5`}
                   >
                     {/* Column 1: Booking ID + Customer Name */}
                     <div className="min-w-0 pr-1">
@@ -238,14 +323,14 @@ export default function RecentBookings({
             </ul>
 
             {hiddenCount > 0 && (
-              <div className="pt-2.5 mt-1 border-t border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
+              <div className="pt-2 mt-1 border-t border-white/[0.08] flex items-center justify-between gap-2 shrink-0 leading-4">
                 <span className="text-[11px] text-[#A9A0BC]">
                   Showing {visibleBookings.length} of {effectiveTotal} bookings
                 </span>
                 <button
                   type="button"
                   onClick={onViewAll}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#C084FC] hover:text-white transition-colors cursor-pointer rounded px-1.5 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#C084FC] hover:text-white transition-colors cursor-pointer rounded px-1.5 py-0.5 leading-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
                 >
                   <span>+{hiddenCount} more</span>
                   <ArrowRight className="w-3 h-3" aria-hidden="true" />
