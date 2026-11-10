@@ -10,7 +10,8 @@ import SlotCreator from '../../components/customer/SlotCreator';
 import PrimaryButton from '../../components/auth/PrimaryButton';
 import { getStationById, STATIONS as DEFAULT_STATIONS } from '../../services/mock/stationMockData';
 import { fetchActiveStations, getCachedStations, resolveStationFromList } from '../../services/stationService';
-import { fetchBookedSlotsForStation, getCachedBookedSlots } from '../../services/bookingService';
+import { fetchBookedSlotsForStation, getCachedBookedSlots, invalidateBookingCaches } from '../../services/bookingService';
+import { subscribeToBookingSync } from '../../services/spotBookingService';
 import { getEligibleBookingDates } from '../../utils/dateEligibility';
 import { calculateEndTime, getDefaultStartTimeForDate, isSlotStartInPast } from '../../utils/bookingTimeUtils';
 import { validateSlotAvailability } from '../../utils/bookingAvailability';
@@ -124,9 +125,22 @@ export default function BookSlot() {
   }, [refreshSlots]);
 
   useEffect(() => {
+    const handleSync = () => {
+      invalidateBookingCaches();
+      refreshSlots();
+    };
     window.addEventListener('oliveal_booking_updated', refreshSlots);
-    return () => window.removeEventListener('oliveal_booking_updated', refreshSlots);
-  }, [refreshSlots]);
+    window.addEventListener('focus', handleSync);
+    const unsubRealtime = subscribeToBookingSync({
+      stationId: selectedStation?.id || null,
+      onBookingChange: handleSync,
+    });
+    return () => {
+      window.removeEventListener('oliveal_booking_updated', refreshSlots);
+      window.removeEventListener('focus', handleSync);
+      unsubRealtime();
+    };
+  }, [refreshSlots, selectedStation?.id]);
 
   // 7. Automatic End Time Calculation (Customers NEVER edit end time manually)
   const calculatedSlot = useMemo(() => {

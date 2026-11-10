@@ -1,19 +1,22 @@
+import { useNavigate } from 'react-router-dom';
 import { House, Zap, ScanLine, Gamepad2, Settings } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: House },
-  { id: 'spot-booking', label: 'Spot Booking', icon: Zap },
-  { id: 'check-in', label: 'Check In', icon: ScanLine },
-  { id: 'stations', label: 'Stations', icon: Gamepad2 },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'dashboard', label: 'Dashboard', icon: House, route: '/admin/dashboard' },
+  { id: 'spot-booking', label: 'Spot Booking', icon: Zap, route: '/admin/spot-booking' },
+  { id: 'check-in', label: 'Check In', icon: ScanLine, route: null },
+  { id: 'stations', label: 'Stations', icon: Gamepad2, route: null },
+  { id: 'settings', label: 'Settings', icon: Settings, route: null },
 ];
 
 /**
  * Persistent mobile-first bottom navigation bar for the Admin section.
- * Strictly locks Dashboard as the active tab during Admin Dashboard implementation;
- * upcoming tabs invoke onSelectUpcomingTab without navigating away.
+ * Routes seamlessly between implemented Dashboard & Spot Booking tabs;
+ * unimplemented tabs stay in place and trigger onSelectUpcomingTab notice.
  */
 export default function BottomNavigation({ activeTab = 'dashboard', onSelectUpcomingTab }) {
+  const navigate = useNavigate();
+
   return (
     <nav
       aria-label="Admin bottom navigation"
@@ -21,11 +24,14 @@ export default function BottomNavigation({ activeTab = 'dashboard', onSelectUpco
     >
       <div className="max-w-md sm:max-w-xl mx-auto rounded-2xl bg-[#110822]/95 border border-purple-500/30 shadow-[0_-8px_32px_rgba(0,0,0,0.65),0_0_24px_rgba(124,58,237,0.18)] backdrop-blur-xl px-1.5 py-1.5">
         <div className="grid grid-cols-5 items-stretch gap-1">
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
+          {NAV_ITEMS.map(({ id, label, icon: Icon, route }) => {
             const isActive = activeTab === id;
 
             const handleClick = () => {
-              if (!isActive && typeof onSelectUpcomingTab === 'function') {
+              if (isActive) return;
+              if (route) {
+                navigate(route);
+              } else if (typeof onSelectUpcomingTab === 'function') {
                 onSelectUpcomingTab(label);
               }
             };
@@ -60,4 +66,3 @@ export default function BottomNavigation({ activeTab = 'dashboard', onSelectUpco
     </nav>
   );
 }
-

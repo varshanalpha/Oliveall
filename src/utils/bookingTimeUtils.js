@@ -256,3 +256,66 @@ export function getDefaultStartTimeForDate(isoDate, referenceDate = new Date()) 
   return `${h}:${m}`;
 }
 
+/**
+ * Returns today's calendar ISO date ('YYYY-MM-DD') in Asia/Kolkata.
+ */
+export function getKolkataTodayIso(referenceDate = new Date()) {
+  return getKolkataParts(referenceDate).isoDate;
+}
+
+/**
+ * Returns true if 'YYYY-MM-DD' is invalid or strictly before today in Asia/Kolkata.
+ */
+export function isDateBeforeTodayIst(isoDate, referenceDate = new Date()) {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate))) return true;
+  return String(isoDate) < getKolkataTodayIso(referenceDate);
+}
+
+/**
+ * Formats an IST ISO calendar date ('YYYY-MM-DD') cleanly like "Today, 10 Nov 2026"
+ * or "Wed, 11 Nov 2026" matching the Admin Spot Booking reference design.
+ */
+export function formatSpotDateLabel(isoDate, referenceDate = new Date()) {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate))) return 'Select Date';
+
+  const todayIso = getKolkataTodayIso(referenceDate);
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const noonUtc = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+
+  const dateText = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(noonUtc);
+
+  if (isoDate === todayIso) {
+    return `Today, ${dateText}`;
+  }
+
+  const weekdayText = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+  }).format(noonUtc);
+
+  return `${weekdayText}, ${dateText}`;
+}
+
+/**
+ * Checks whether a walk-in spot booking interval has expired past the 15-minute desk grace period.
+ */
+export function isSpotSlotInPast(
+  isoDate,
+  startTimeOrMinutes,
+  durationMinutes = 60,
+  referenceDate = new Date()
+) {
+  if (isDateBeforeTodayIst(isoDate, referenceDate)) return true;
+  const slotStartMs = getSlotStartEpochMs(isoDate, startTimeOrMinutes);
+  const refMs = new Date(referenceDate).getTime();
+  if (Number.isNaN(slotStartMs) || Number.isNaN(refMs)) return true;
+
+  const slotEndMs = slotStartMs + Number(durationMinutes || 60) * 60000;
+  return slotEndMs <= refMs || slotStartMs < refMs - 15 * 60 * 1000;
+}
+

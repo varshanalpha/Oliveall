@@ -230,6 +230,17 @@ export async function createSupabaseBooking({
 
     invalidateBookingCaches();
     window.dispatchEvent(new Event('oliveal_booking_updated'));
+    try {
+      const ch = supabase.channel('oliveal-bookings-sync');
+      await ch.send({
+        type: 'broadcast',
+        event: 'booking_changed',
+        payload: { station_id: station.id, ts: Date.now() },
+      });
+      supabase.removeChannel(ch);
+    } catch {
+      // Non-fatal sync notification
+    }
     return { booking: mapped, error: null };
   } catch (err) {
     console.error('Error creating Supabase booking:', err);

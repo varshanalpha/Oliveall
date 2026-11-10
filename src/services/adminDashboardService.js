@@ -21,17 +21,29 @@ const VALID_BOOKING_STATUSES = ['confirmed', 'completed'];
 const RECENT_VISIBLE_STATUSES = ['confirmed', 'completed'];
 const RECENT_DASHBOARD_FETCH_LIMIT = 20;
 
+let spotMetadataColumnsSupported = null;
+
+function isMissingColumnError(err) {
+  return err?.code === '42703' || err?.message?.includes('does not exist');
+}
+
 function mapBookingRecord(row, nowMs = Date.now()) {
+  const resolvedCustomerName =
+    row.customer_name?.trim() ||
+    row.profiles?.full_name?.trim() ||
+    (row.booking_source === 'spot' ? 'Walk-in Customer' : 'Customer');
+
   return {
     id: row.id,
     bookingNumber: row.booking_number,
-    customerName: row.profiles?.full_name || 'Customer',
+    customerName: resolvedCustomerName,
     stationName: row.stations?.name || '—',
     dateLabel: formatBookingDateIst(row.start_at),
     timeRange: formatBookingTimeRangeIst(row.start_at, row.end_at),
     durationMinutes: row.duration_minutes,
     playerCount: row.player_count,
     totalAmount: row.total_amount ?? null,
+    bookingSource: row.booking_source || (row.user_id ? 'online' : 'spot'),
     statusInfo: deriveBookingLifecycleStatus(row, nowMs),
     startAt: row.start_at,
     endAt: row.end_at,
@@ -41,27 +53,43 @@ function mapBookingRecord(row, nowMs = Date.now()) {
 
 /**
  * Counts distinct customers who have at least one valid (confirmed/completed) booking.
- * Returns 0 immediately when bookings are deleted in Supabase.
+ * Supports both registered profile bookings and walk-in spot bookings (where user_id is NULL).
+ * Drops cleanly to 0 if bookings are deleted in Supabase.
  */
 async function fetchUniqueBookedCustomersCount() {
-  const uniqueUserIds = new Set();
+  const uniqueCustomers = new Set();
   const pageSize = 1000;
   let offset = 0;
 
   while (true) {
+    const selectFields = spotMetadataColumnsSupported === false ? 'id, user_id' : 'id, user_id, customer_name';
     const { data, error } = await supabase
       .from('bookings')
-      .select('user_id')
+      .select(selectFields)
       .in('status', VALID_BOOKING_STATUSES)
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
 
-    if (error) throw error;
+    if (error) {
+      if (spotMetadataColumnsSupported !== false && isMissingColumnError(error)) {
+        spotMetadataColumnsSupported = false;
+        continue;
+      }
+      throw error;
+    }
+
+    if (spotMetadataColumnsSupported === null) {
+      spotMetadataColumnsSupported = true;
+    }
 
     const batch = data || [];
     for (const row of batch) {
       if (row.user_id) {
-        uniqueUserIds.add(row.user_id);
+        uniqueCustomers.add(`user:${row.user_id}`);
+      } else if (row.customer_name?.trim()) {
+        uniqueCustomers.add(`spot:${row.customer_name.trim().toLowerCase()}`);
+      } else if (row.id) {
+        uniqueCustomers.add(`booking:${row.id}`);
       }
     }
 
@@ -71,7 +99,7 @@ async function fetchUniqueBookedCustomersCount() {
     offset += pageSize;
   }
 
-  return uniqueUserIds.size;
+  return uniqueCustomers.size;
 }
 
 function isMissingRelationError(err) {
@@ -123,8 +151,46 @@ function getRevenueSchemaUnavailableState() {
   };
 }
 
+async function queryAdminBookingsRange({ offset = 0, limit = 20, withCount = true } = {}) {
+  const to = offset + limit - 1;
+  const buildQuery = (includeSpotCols) => {
+    const baseCols = `
+      id,
+      booking_number,
+      user_id,
+      station_id,
+      start_at,
+      end_at,
+      duration_minutes,
+      player_count,
+      total_amount,
+      status,
+      ${includeSpotCols ? 'customer_name, booking_source,' : ''}
+      created_at,
+      profiles ( id, full_name ),
+      stations ( id, name )
+    `;
+    return supabase
+      .from('bookings')
+      .select(baseCols, withCount ? { count: 'exact' } : undefined)
+      .in('status', RECENT_VISIBLE_STATUSES)
+      .order('created_at', { ascending: false })
+      .range(offset, to);
+  };
+
+  let res = await buildQuery(spotMetadataColumnsSupported !== false);
+  if (res.error && spotMetadataColumnsSupported !== false && isMissingColumnError(res.error)) {
+    spotMetadataColumnsSupported = false;
+    res = await buildQuery(false);
+  } else if (!res.error && spotMetadataColumnsSupported === null) {
+    spotMetadataColumnsSupported = true;
+  }
+
+  return res;
+}
+
 /**
- * Loads all Admin Dashboard metrics and latest 3 bookings from Supabase
+ * Loads all Admin Dashboard metrics and latest bookings from Supabase
  */
 export async function fetchAdminDashboardData() {
   // 1. Strict server-backed Admin verification
@@ -175,29 +241,7 @@ export async function fetchAdminDashboardData() {
       .in('status', ['confirmed']),
 
     // Recent Bookings (up to 20 latest so dashboard dynamically fills height down to bottom nav)
-    supabase
-      .from('bookings')
-      .select(
-        `
-        id,
-        booking_number,
-        user_id,
-        station_id,
-        start_at,
-        end_at,
-        duration_minutes,
-        player_count,
-        total_amount,
-        status,
-        created_at,
-        profiles ( id, full_name ),
-        stations ( id, name )
-      `,
-        { count: 'exact' }
-      )
-      .in('status', RECENT_VISIBLE_STATUSES)
-      .order('created_at', { ascending: false })
-      .limit(RECENT_DASHBOARD_FETCH_LIMIT),
+    queryAdminBookingsRange({ offset: 0, limit: RECENT_DASHBOARD_FETCH_LIMIT, withCount: true }),
   ]);
 
   const revenueRes = getRevenueSchemaUnavailableState();
@@ -280,29 +324,11 @@ export async function fetchAllAdminBookings({ limit = 50, offset = 0 } = {}) {
     throw new Error('Administrative privileges required to view all bookings.');
   }
 
-  const { data, error, count } = await supabase
-    .from('bookings')
-    .select(
-      `
-      id,
-      booking_number,
-      user_id,
-      station_id,
-      start_at,
-      end_at,
-      duration_minutes,
-      player_count,
-      total_amount,
-      status,
-      created_at,
-      profiles ( id, full_name ),
-      stations ( id, name )
-    `,
-      { count: 'exact' }
-    )
-    .in('status', RECENT_VISIBLE_STATUSES)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  const { data, error, count } = await queryAdminBookingsRange({
+    offset,
+    limit,
+    withCount: true,
+  });
 
   if (error) throw error;
 

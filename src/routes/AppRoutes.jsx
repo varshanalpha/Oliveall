@@ -10,6 +10,7 @@ import BookSlot from '../pages/customer/BookSlot';
 import ConfirmBooking from '../pages/customer/ConfirmBooking';
 import MyBookings from '../pages/customer/MyBookings';
 import AdminDashboard from '../pages/admin/AdminDashboard';
+import SpotBooking from '../pages/admin/SpotBooking';
 import ProtectedRoute from './ProtectedRoute';
 import AdminRoute from './AdminRoute';
 import AuthLayout from '../components/auth/AuthLayout';
@@ -142,6 +143,14 @@ export default function AppRoutes() {
         element={
           <AdminRoute>
             <AdminDashboard />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/spot-booking"
+        element={
+          <AdminRoute>
+            <SpotBooking />
           </AdminRoute>
         }
       />
