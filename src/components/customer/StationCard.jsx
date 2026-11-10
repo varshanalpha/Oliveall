@@ -1,9 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function StationCard({ station }) {
+export default function StationCard({ station, globallyDisabled = false }) {
   const navigate = useNavigate();
-  const isDisabled = station?.isActive === false;
+  const isStationDisabled = station?.isActive === false;
+  const isDisabled = isStationDisabled || globallyDisabled;
 
   const handleClick = () => {
     if (isDisabled) return;
@@ -32,7 +33,7 @@ export default function StationCard({ station }) {
       <div className="flex items-center justify-between gap-1.5 w-full mb-1">
         {isDisabled ? (
           <span className="px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-400/35 text-[9.5px] sm:text-[10px] font-bold text-rose-300 uppercase tracking-wider">
-            Disabled
+            {isStationDisabled ? 'Disabled' : 'Unavailable'}
           </span>
         ) : (
           <span />

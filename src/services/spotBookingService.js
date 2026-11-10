@@ -7,6 +7,7 @@
 import { supabase } from '../lib/supabase';
 import { verifyAdminSession } from './adminDashboardService';
 import { invalidateBookingCaches } from './bookingService';
+import { fetchAppSettings } from './appSettingsService';
 import {
   buildKolkataTimestamp,
   getKolkataDayBounds,
@@ -71,6 +72,10 @@ function normalizeSpotRpcError(error) {
     return new Error(
       'Database function create_spot_booking is not installed yet. Please execute supabase/migrations/03_spot_bookings.sql in Supabase SQL Editor.'
     );
+  }
+
+  if (msg.toLowerCase().includes('temporarily unavailable')) {
+    return new Error('Bookings are temporarily unavailable. Please try again later.');
   }
 
   if (
@@ -214,6 +219,12 @@ export async function createAdminSpotBooking({
         ? 'Your session has expired. Please sign in again.'
         : 'Administrative privileges required to create spot bookings.'
     );
+  }
+
+  // 1b. Enforce Global Booking Controls (Disable Bookings blocks Spot Booking too)
+  const globalSettings = await fetchAppSettings({ forceRefresh: true });
+  if (globalSettings?.bookingEnabled === false) {
+    throw new Error('Bookings are temporarily unavailable. Please try again later.');
   }
 
   // 2. Client-side guard before RPC

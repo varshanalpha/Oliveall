@@ -57,6 +57,7 @@ export default function SpotBooking() {
     onIncrementPlayers,
     onSubmit,
     resetForm,
+    globalBookingEnabled,
     submitting,
     feedback,
     clearFeedback,
@@ -120,6 +121,24 @@ export default function SpotBooking() {
           <span>History</span>
         </button>
       </header>
+
+      {!globalBookingEnabled && (
+        <div
+          role="alert"
+          data-testid="spot-global-booking-disabled-banner"
+          className="rounded-2xl px-4 py-3.5 border border-rose-500/40 bg-rose-500/12 flex items-start gap-3 shadow-[0_6px_24px_rgba(244,63,94,0.16)]"
+        >
+          <AlertCircle className="w-5 h-5 text-rose-300 shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-rose-100 leading-snug">
+              Bookings are temporarily unavailable. Please try again later.
+            </p>
+            <p className="text-xs text-rose-200/80 mt-0.5 leading-snug">
+              Disable Bookings is currently enabled in Admin Settings, pausing all new spot and online bookings.
+            </p>
+          </div>
+        </div>
+      )}
 
       <form noValidate onSubmit={handleFormSubmit} className="space-y-4">
         {/* 1. Customer Details (Walk-in full name only) */}
@@ -205,7 +224,7 @@ export default function SpotBooking() {
         <div className="pt-1">
           <button
             type="submit"
-            disabled={submitting || stationsLoading}
+            disabled={submitting || stationsLoading || !globalBookingEnabled}
             className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#A855F7] hover:brightness-110 active:scale-[0.99] text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 border border-purple-300/35 shadow-[0_8px_28px_rgba(124,58,237,0.45),0_0_20px_rgba(217,70,239,0.2)] transition-all cursor-pointer disabled:opacity-55 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300"
           >
             {submitting ? (

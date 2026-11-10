@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import CustomerHeader from '../../components/customer/CustomerHeader';
 import HeroSection from '../../components/customer/HeroSection';
 import NavigationCard from '../../components/customer/NavigationCard';
@@ -8,10 +9,18 @@ import {
   getCachedStations,
   subscribeToStationSync,
 } from '../../services/stationService';
+import {
+  fetchAppSettings,
+  getCachedAppSettings,
+  subscribeToAppSettingsSync,
+} from '../../services/appSettingsService';
 
 export default function CustomerHome() {
   const [stations, setStations] = useState(() => getCachedStations() || []);
   const [loadingStations, setLoadingStations] = useState(() => !getCachedStations());
+  const [globalBookingEnabled, setGlobalBookingEnabled] = useState(
+    () => getCachedAppSettings()?.bookingEnabled !== false
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -26,11 +35,19 @@ export default function CustomerHome() {
       });
       setLoadingStations(false);
     }
+    async function loadGlobalSettings() {
+      const settings = await fetchAppSettings({ forceRefresh: true });
+      if (!mounted) return;
+      setGlobalBookingEnabled(settings?.bookingEnabled !== false);
+    }
     loadStations(true);
+    loadGlobalSettings();
     const unsub = subscribeToStationSync(() => loadStations(true));
+    const unsubSettings = subscribeToAppSettingsSync(loadGlobalSettings);
     return () => {
       mounted = false;
       unsub();
+      unsubSettings();
     };
   }, []);
 
@@ -56,6 +73,25 @@ export default function CustomerHome() {
         {/* 2. Primary Navigation Cards ("Book Your Slot" & "My Bookings") */}
         <NavigationCard />
 
+        {/* Global Booking Pause Notice (when Disable Bookings is enabled by Admin) */}
+        {!globalBookingEnabled && (
+          <div
+            role="alert"
+            data-testid="customer-global-booking-disabled-banner"
+            className="rounded-2xl bg-rose-500/12 border border-rose-500/40 px-4 py-3.5 flex items-start gap-3 shadow-[0_6px_24px_rgba(244,63,94,0.16)]"
+          >
+            <AlertCircle className="w-5 h-5 text-rose-300 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-bold text-rose-100 leading-snug">
+                Bookings are temporarily unavailable. Please try again later.
+              </p>
+              <p className="text-[11px] sm:text-xs text-rose-200/80 mt-0.5 leading-snug">
+                You can still view your existing reservations under My Bookings.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* 3. Gaming Stations Section */}
         <section className="mt-1">
           {/* Section Header with Live Availability Badge */}
@@ -64,10 +100,17 @@ export default function CustomerHome() {
               Our Gaming Stations
             </h2>
 
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>Live Availability</span>
-            </div>
+            {globalBookingEnabled ? (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>Live Availability</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/35 text-rose-300 text-xs font-bold shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-rose-400" />
+                <span>Bookings Paused</span>
+              </div>
+            )}
           </div>
 
           {/* Stations Grid */}
@@ -83,7 +126,11 @@ export default function CustomerHome() {
           ) : (
             <div className="grid grid-cols-2 gap-3.5">
               {stations.map((station) => (
-                <StationCard key={station.id} station={station} />
+                <StationCard
+                  key={station.id}
+                  station={station}
+                  globallyDisabled={!globalBookingEnabled}
+                />
               ))}
             </div>
           )}

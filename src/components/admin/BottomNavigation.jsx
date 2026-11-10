@@ -6,7 +6,7 @@ const NAV_ITEMS = [
   { id: 'spot-booking', label: 'Spot Booking', icon: Zap, route: '/admin/spot-booking' },
   { id: 'check-in', label: 'Check In', icon: ScanLine, route: '/admin/check-in' },
   { id: 'stations', label: 'Stations', icon: Gamepad2, route: '/admin/stations' },
-  { id: 'settings', label: 'Settings', icon: Settings, route: null },
+  { id: 'settings', label: 'Settings', icon: Settings, route: '/admin/settings' },
 ];
 
 /**

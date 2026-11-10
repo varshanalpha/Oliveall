@@ -22,11 +22,16 @@ import {
 } from '../../services/stationService';
 import { createSupabaseBooking } from '../../services/bookingService';
 import {
+  fetchAppSettings,
+  getCachedAppSettings,
+  subscribeToAppSettingsSync,
+} from '../../services/appSettingsService';
+import {
   calculateStationCharge,
   calculatePlatformFee,
   calculateTotalAmount,
 } from '../../utils/pricingUtils';
-import { formatDate, isSlotStartInPast } from '../../utils/bookingTimeUtils';
+import { formatDate, getKolkataTodayIso, isSlotStartInPast } from '../../utils/bookingTimeUtils';
 
 /**
  * OLIVEAL GAMING ZONE — CONFIRM BOOKING PAGE
@@ -122,12 +127,33 @@ export default function ConfirmBooking() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
+  const [globalSettings, setGlobalSettings] = useState(
+    () =>
+      getCachedAppSettings() || {
+        bookingEnabled: true,
+        advanceBookingEnabled: true,
+      }
+  );
 
   useEffect(() => {
+    let mounted = true;
+    const syncGlobalSettings = async () => {
+      const settings = await fetchAppSettings({ forceRefresh: true });
+      if (!mounted) return;
+      setGlobalSettings({
+        bookingEnabled: settings?.bookingEnabled !== false,
+        advanceBookingEnabled: settings?.advanceBookingEnabled !== false,
+      });
+    };
+    syncGlobalSettings();
+    const unsubSettings = subscribeToAppSettingsSync(syncGlobalSettings);
+
     const updateNow = () => setNowMs(Date.now());
     const timer = setInterval(updateNow, 15000);
     window.addEventListener('focus', updateNow);
     return () => {
+      mounted = false;
+      unsubSettings();
       clearInterval(timer);
       window.removeEventListener('focus', updateNow);
     };
@@ -138,6 +164,11 @@ export default function ConfirmBooking() {
     [bookingIsoDate, startTime, nowMs]
   );
   const isStationDisabled = selectedStation?.isActive === false;
+  const isGlobalBookingDisabled = globalSettings.bookingEnabled === false;
+  const isAdvanceDisabledForDate =
+    globalSettings.advanceBookingEnabled === false &&
+    Boolean(bookingIsoDate) &&
+    bookingIsoDate > getKolkataTodayIso();
 
   // Navigate back to BookSlot preserving selections
   const handleEdit = () => {
@@ -155,6 +186,26 @@ export default function ConfirmBooking() {
 
   // Submit and persist booking to Supabase via atomic RPC
   const handleConfirmAndPay = async () => {
+    const latestGlobal = await fetchAppSettings({ forceRefresh: true });
+    const latestBookingEnabled = latestGlobal?.bookingEnabled !== false;
+    const latestAdvanceEnabled = latestGlobal?.advanceBookingEnabled !== false;
+    setGlobalSettings({
+      bookingEnabled: latestBookingEnabled,
+      advanceBookingEnabled: latestAdvanceEnabled,
+    });
+
+    if (!latestBookingEnabled) {
+      setSubmitError('Bookings are temporarily unavailable. Please try again later.');
+      return;
+    }
+
+    if (!latestAdvanceEnabled && bookingIsoDate > getKolkataTodayIso()) {
+      setSubmitError(
+        'Advance bookings for future dates are currently disabled. Please select today for same-day booking.'
+      );
+      return;
+    }
+
     if (isStationDisabled) {
       setSubmitError(
         `${selectedStation?.name || 'This station'} is currently disabled (Temporarily Unavailable). Please go back and select an active station.`
@@ -289,23 +340,44 @@ export default function ConfirmBooking() {
         />
 
         {/* Server Validation / Conflict / Expired / Disabled Station Alert */}
-        {(isStationDisabled || isPastSlot || submitError) && (
+        {(isGlobalBookingDisabled ||
+          isAdvanceDisabledForDate ||
+          isStationDisabled ||
+          isPastSlot ||
+          submitError) && (
           <StatusMessage
             type="error"
             message={
-              isStationDisabled
-                ? `${selectedStation?.name || 'This station'} is currently disabled (Temporarily Unavailable). Please go back and choose another station.`
-                : submitError ||
-                  'Selected start time has already passed. Please tap Edit above to choose an upcoming time slot.'
+              isGlobalBookingDisabled
+                ? 'Bookings are temporarily unavailable. Please try again later.'
+                : isAdvanceDisabledForDate
+                  ? 'Advance bookings for future dates are currently disabled. Please go back and select today.'
+                  : isStationDisabled
+                    ? `${selectedStation?.name || 'This station'} is currently disabled (Temporarily Unavailable). Please go back and choose another station.`
+                    : submitError ||
+                      'Selected start time has already passed. Please tap Edit above to choose an upcoming time slot.'
             }
-            onClose={submitError && !isStationDisabled ? () => setSubmitError(null) : undefined}
+            onClose={
+              submitError &&
+              !isStationDisabled &&
+              !isGlobalBookingDisabled &&
+              !isAdvanceDisabledForDate
+                ? () => setSubmitError(null)
+                : undefined
+            }
           />
         )}
 
         {/* 6. Full-Width Confirm Booking & Pay CTA Button */}
         <div className="mt-1">
           <ConfirmBookingButton
-            disabled={!agreedToTerms || isPastSlot || isStationDisabled}
+            disabled={
+              !agreedToTerms ||
+              isPastSlot ||
+              isStationDisabled ||
+              isGlobalBookingDisabled ||
+              isAdvanceDisabledForDate
+            }
             loading={isSubmitting}
             onClick={handleConfirmAndPay}
           />

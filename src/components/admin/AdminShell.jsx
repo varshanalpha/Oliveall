@@ -3,10 +3,13 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Info, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { clearAdminDashboardCache } from '../../hooks/useAdminDashboard';
+import { invalidateAppSettingsCache } from '../../services/appSettingsService';
 import AdminHeader from './AdminHeader';
 import BottomNavigation from './BottomNavigation';
 
 function getRouteOrderIndex(pathname) {
+  if (pathname.startsWith('/admin/settings/edit-profile')) return 4.5;
+  if (pathname.startsWith('/admin/settings')) return 4;
   if (pathname.startsWith('/admin/stations/') && pathname.includes('/close-slots')) return 3.5;
   if (pathname.startsWith('/admin/stations')) return 3;
   if (pathname.startsWith('/admin/check-in')) return 2;
@@ -16,6 +19,7 @@ function getRouteOrderIndex(pathname) {
 }
 
 function getActiveTabId(pathname) {
+  if (pathname.startsWith('/admin/settings')) return 'settings';
   if (pathname.startsWith('/admin/stations')) return 'stations';
   if (pathname.startsWith('/admin/check-in')) return 'check-in';
   if (pathname.startsWith('/admin/spot-booking')) return 'spot-booking';
@@ -65,6 +69,7 @@ export default function AdminShell() {
 
   const handleSignOut = useCallback(async () => {
     clearAdminDashboardCache();
+    invalidateAppSettingsCache();
     try {
       await signOut();
     } finally {

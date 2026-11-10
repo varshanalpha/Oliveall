@@ -8,9 +8,11 @@ import { supabase } from '../lib/supabase';
 import {
   buildKolkataTimestamp,
   getKolkataDayBounds,
+  getKolkataTodayIso,
   formatBookingTimesKolkata,
   isSlotStartInPast,
 } from '../utils/bookingTimeUtils';
+import { fetchAppSettings } from './appSettingsService';
 
 const STATUS_LABELS = {
   pending_payment: 'Pending Payment',
@@ -214,6 +216,19 @@ export async function createSupabaseBooking({
       );
     }
 
+    const latestSettings = await fetchAppSettings({ forceRefresh: true });
+    if (latestSettings.bookingEnabled === false) {
+      throw new Error('Bookings are temporarily unavailable. Please try again later.');
+    }
+    if (
+      latestSettings.advanceBookingEnabled === false &&
+      isoDate > getKolkataTodayIso()
+    ) {
+      throw new Error(
+        'Advance bookings for future dates are currently disabled. Same-day bookings remain available.'
+      );
+    }
+
     const startAt = buildKolkataTimestamp(isoDate, startTime);
 
     if (!isoDate || !startTime || Number.isNaN(Date.parse(startAt)) || isSlotStartInPast(isoDate, startTime, Date.now())) {
@@ -230,7 +245,16 @@ export async function createSupabaseBooking({
 
     if (error) {
       const msg = String(error.message || '');
-      if (msg.includes('currently inactive') || msg.includes('temporarily unavailable')) {
+      const lower = msg.toLowerCase();
+      if (lower.includes('temporarily unavailable') && lower.includes('try again later')) {
+        throw new Error('Bookings are temporarily unavailable. Please try again later.');
+      }
+      if (lower.includes('advance bookings for future dates')) {
+        throw new Error(
+          'Advance bookings for future dates are currently disabled. Same-day bookings remain available.'
+        );
+      }
+      if (lower.includes('currently inactive') || lower.includes('temporarily unavailable')) {
         throw new Error(
           `${station.name || 'Selected station'} is currently disabled and temporarily unavailable.`
         );

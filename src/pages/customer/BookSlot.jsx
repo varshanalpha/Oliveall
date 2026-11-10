@@ -17,8 +17,18 @@ import {
 } from '../../services/stationService';
 import { fetchBookedSlotsForStation, getCachedBookedSlots, invalidateBookingCaches } from '../../services/bookingService';
 import { subscribeToBookingSync } from '../../services/spotBookingService';
+import {
+  fetchAppSettings,
+  getCachedAppSettings,
+  subscribeToAppSettingsSync,
+} from '../../services/appSettingsService';
 import { getEligibleBookingDates } from '../../utils/dateEligibility';
-import { calculateEndTime, getDefaultStartTimeForDate, isSlotStartInPast } from '../../utils/bookingTimeUtils';
+import {
+  calculateEndTime,
+  getDefaultStartTimeForDate,
+  getKolkataTodayIso,
+  isSlotStartInPast,
+} from '../../utils/bookingTimeUtils';
 import { validateSlotAvailability } from '../../utils/bookingAvailability';
 
 export default function BookSlot() {
@@ -64,15 +74,66 @@ export default function BookSlot() {
     };
   }, [stationParam]);
 
-  // 2. Date State (Calculate eligible dates: Today vs Tomorrow 8 PM rule in Asia/Kolkata)
-  const eligibleDates = useMemo(() => getEligibleBookingDates(), []);
+  // 2. Global Booking Controls & Live IST Clock
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [globalSettings, setGlobalSettings] = useState(
+    () =>
+      getCachedAppSettings() || {
+        bookingEnabled: true,
+        advanceBookingEnabled: true,
+      }
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    const syncGlobalSettings = async () => {
+      const settings = await fetchAppSettings({ forceRefresh: true });
+      if (!mounted) return;
+      setGlobalSettings({
+        bookingEnabled: settings?.bookingEnabled !== false,
+        advanceBookingEnabled: settings?.advanceBookingEnabled !== false,
+      });
+    };
+    syncGlobalSettings();
+    const unsubSettings = subscribeToAppSettingsSync(syncGlobalSettings);
+    return () => {
+      mounted = false;
+      unsubSettings();
+    };
+  }, []);
+
+  // 3. Date State (Calculate eligible dates: Today vs Tomorrow 8 PM & Disable Advance Bookings rule)
+  const eligibleDates = useMemo(
+    () =>
+      getEligibleBookingDates(nowMs, {
+        advanceBookingEnabled: globalSettings.advanceBookingEnabled,
+      }),
+    [nowMs, globalSettings.advanceBookingEnabled]
+  );
   const [selectedDate, setSelectedDate] = useState(() => {
     if (editState.date?.isoDate) {
-      const match = eligibleDates.find((d) => d.isoDate === editState.date.isoDate);
+      const match = eligibleDates.find(
+        (d) => d.isoDate === editState.date.isoDate && d.isAvailable
+      );
       if (match) return match;
     }
     return eligibleDates[0];
   });
+
+  useEffect(() => {
+    if (!eligibleDates.length) return;
+    setSelectedDate((prev) => {
+      const match = eligibleDates.find((d) => d.isoDate === prev?.isoDate);
+      if (match && match.isAvailable) {
+        return prev?.label === match.label &&
+          prev?.isAvailable === match.isAvailable &&
+          prev?.unlockLabel === match.unlockLabel
+          ? prev
+          : match;
+      }
+      return eligibleDates[0];
+    });
+  }, [eligibleDates]);
 
   // 3. Player Count State (Strictly 1 or 2; Racing Simulators are strictly 1)
   const isSimulator =
@@ -92,8 +153,7 @@ export default function BookSlot() {
     }
   }, [selectedStation?.id, isSimulator, players]);
 
-  // 4. Live Clock & Time Selection State (15-min intervals, strictly 60, 90, 120 min)
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  // 4. Time Selection State (15-min intervals, strictly 60, 90, 120 min)
   const [startTime, setStartTime] = useState(
     () => editState.startTime || getDefaultStartTimeForDate(selectedDate?.isoDate)
   );
@@ -173,10 +233,15 @@ export default function BookSlot() {
   }, [calculatedSlot, bookedSlots, selectedDate?.isoDate, nowMs]);
 
   const isStationDisabled = selectedStation?.isActive === false;
+  const isGlobalBookingDisabled = globalSettings.bookingEnabled === false;
+  const isAdvanceDateBlocked =
+    globalSettings.advanceBookingEnabled === false &&
+    Boolean(selectedDate?.isoDate) &&
+    selectedDate.isoDate > getKolkataTodayIso();
 
   // Handle Confirm Booking Submission — Route to Confirm Booking Page
   const handleConfirmBooking = () => {
-    if (isStationDisabled) return;
+    if (isGlobalBookingDisabled || isAdvanceDateBlocked || isStationDisabled) return;
     const freshNowMs = Date.now();
     if (isSlotStartInPast(selectedDate?.isoDate, startTime, freshNowMs)) {
       setNowMs(freshNowMs);
@@ -236,6 +301,16 @@ export default function BookSlot() {
           </button>
         </div>
 
+        {isGlobalBookingDisabled && (
+          <div
+            role="alert"
+            data-testid="customer-global-booking-disabled-banner"
+            className="rounded-2xl bg-rose-500/15 border border-rose-500/40 px-4 py-3.5 text-xs sm:text-sm text-rose-100 font-semibold leading-snug shadow-[0_6px_24px_rgba(244,63,94,0.16)]"
+          >
+            Bookings are temporarily unavailable. Please try again later.
+          </div>
+        )}
+
         {/* 1. Selected Station Hero with Switcher */}
         <StationSelector
           stations={stations}
@@ -243,7 +318,7 @@ export default function BookSlot() {
           onSelectStation={(station) => setSelectedStation(station)}
         />
 
-        {isStationDisabled && (
+        {!isGlobalBookingDisabled && isStationDisabled && (
           <div
             role="alert"
             className="rounded-2xl bg-rose-500/15 border border-rose-500/40 px-4 py-3 text-xs sm:text-sm text-rose-200 font-medium leading-snug"
@@ -253,15 +328,26 @@ export default function BookSlot() {
           </div>
         )}
 
-        {/* 2. Select Date (Today vs Tomorrow with 8 PM advance rule) */}
+        {/* 2. Select Date (Today vs Tomorrow with 8 PM advance & Disable Advance rule) */}
         <DateSelector
           eligibleDates={eligibleDates}
           selectedDate={selectedDate}
           onSelectDate={(date) => {
+            if (!date?.isAvailable) return;
             setNowMs(Date.now());
             setSelectedDate(date);
           }}
         />
+
+        {globalSettings.advanceBookingEnabled === false && (
+          <div
+            role="status"
+            data-testid="customer-advance-disabled-notice"
+            className="rounded-2xl bg-purple-500/12 border border-purple-400/35 px-4 py-2.5 text-xs text-purple-200 font-medium leading-snug"
+          >
+            Advance bookings for future dates are currently disabled. Same-day bookings for today remain available.
+          </div>
+        )}
 
         {/* 3. Select Number of Players (1 Player vs 2 Players; Racing Simulator is strictly 1) */}
         <PlayerSelector
@@ -300,9 +386,18 @@ export default function BookSlot() {
           <PrimaryButton
             type="button"
             onClick={handleConfirmBooking}
-            disabled={!validation.isValid || isStationDisabled}
+            disabled={
+              !validation.isValid ||
+              isStationDisabled ||
+              isGlobalBookingDisabled ||
+              isAdvanceDateBlocked
+            }
           >
-            {isStationDisabled ? 'Station Temporarily Unavailable' : 'Confirm Booking'}
+            {isGlobalBookingDisabled
+              ? 'Bookings Temporarily Unavailable'
+              : isStationDisabled
+                ? 'Station Temporarily Unavailable'
+                : 'Confirm Booking'}
           </PrimaryButton>
         </div>
 

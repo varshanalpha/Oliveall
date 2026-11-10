@@ -6,6 +6,11 @@ import {
   subscribeToBookingSync,
 } from '../services/spotBookingService';
 import {
+  fetchAppSettings,
+  getCachedAppSettings,
+  subscribeToAppSettingsSync,
+} from '../services/appSettingsService';
+import {
   getKolkataTodayIso,
   getDefaultStartTimeForDate,
 } from '../utils/bookingTimeUtils';
@@ -35,8 +40,28 @@ export function useSpotBooking() {
   const [showAllErrors, setShowAllErrors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [globalBookingEnabled, setGlobalBookingEnabled] = useState(
+    () => getCachedAppSettings()?.bookingEnabled !== false
+  );
 
   const inFlightSubmitRef = useRef(false);
+
+  // Sync Global Booking Controls so Spot Booking responds live when Disable Bookings is toggled
+  useEffect(() => {
+    let cancelled = false;
+    const syncGlobalSettings = async () => {
+      const settings = await fetchAppSettings({ forceRefresh: true });
+      if (!cancelled) {
+        setGlobalBookingEnabled(settings?.bookingEnabled !== false);
+      }
+    };
+    syncGlobalSettings();
+    const unsubscribe = subscribeToAppSettingsSync(syncGlobalSettings);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   // Select first active station automatically once live stations finish loading
   useEffect(() => {
@@ -169,6 +194,16 @@ export function useSpotBooking() {
     setCustomerNameTouched(true);
     setFeedback(null);
 
+    if (!globalBookingEnabled) {
+      const pauseMsg = 'Bookings are temporarily unavailable. Please try again later.';
+      setFeedback({
+        type: 'error',
+        title: 'Bookings Disabled',
+        message: pauseMsg,
+      });
+      return { ok: false, error: pauseMsg };
+    }
+
     const freshNowMs = Date.now();
     setNowMs(freshNowMs);
 
@@ -219,6 +254,9 @@ export function useSpotBooking() {
       await refreshBookedSlots();
       return { ok: true, booking: createdBooking };
     } catch (err) {
+      if (String(err?.message || '').toLowerCase().includes('temporarily unavailable')) {
+        setGlobalBookingEnabled(false);
+      }
       setFeedback({
         type: 'error',
         title: 'Booking Failed',
@@ -233,6 +271,7 @@ export function useSpotBooking() {
     }
   }, [
     submitting,
+    globalBookingEnabled,
     customerName,
     selectedStation,
     selectedDateIso,
@@ -299,7 +338,8 @@ export function useSpotBooking() {
     onSubmit: handleSubmit,
     resetForm,
 
-    // Submission feedback
+    // Submission feedback & global booking state
+    globalBookingEnabled,
     submitting,
     feedback,
     clearFeedback: () => setFeedback(null),

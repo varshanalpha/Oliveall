@@ -21,6 +21,8 @@ export default function DateSelector({ eligibleDates, selectedDate, onSelectDate
               <div
                 key={item.isoDate}
                 title={item.tooltip}
+                aria-disabled="true"
+                data-testid={`date-card-locked-${item.isoDate}`}
                 className="relative flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-2xl bg-[#110e20]/60 border border-white/[0.05] opacity-50 cursor-not-allowed select-none text-center"
               >
                 <div className="flex items-center gap-1.5 mb-0.5">
@@ -35,7 +37,7 @@ export default function DateSelector({ eligibleDates, selectedDate, onSelectDate
                 </span>
 
                 <span className="mt-1 text-[10px] font-semibold text-fuchsia-400/80 uppercase tracking-wider">
-                  Unlocks at 8:00 PM
+                  {item.unlockLabel || 'Unlocks at 8:00 PM'}
                 </span>
               </div>
             );

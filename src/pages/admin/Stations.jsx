@@ -210,78 +210,54 @@ export default function Stations() {
   };
 
   return (
-    <main className="relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-4 sm:pt-5 pb-28 space-y-3.5 sm:space-y-4">
+    <main
+      className={`relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-2.5 sm:pt-4 flex flex-col ${
+        activeSubTab === 'stations' ? 'pb-[84px] gap-2 sm:gap-2.5' : 'pb-28 space-y-3.5 sm:space-y-4'
+      }`}
+    >
       {/* Page Heading */}
-      <header className="px-0.5">
+      <header className="px-0.5 shrink-0">
         <div className="flex items-center gap-2.5">
           <Gamepad2 className="w-6 h-6 sm:w-7 sm:h-7 text-[#C4B5FD] shrink-0" aria-hidden="true" />
-          <h1 className="text-[1.6rem] sm:text-[1.75rem] font-extrabold text-white tracking-tight leading-tight">
+          <h1 className="text-[1.5rem] sm:text-[1.75rem] font-extrabold text-white tracking-tight leading-tight">
             Stations
           </h1>
         </div>
-        <p className="text-xs sm:text-sm text-[#A9A0BC] mt-1 font-medium leading-snug">
+        <p className="text-xs sm:text-sm text-[#A9A0BC] mt-0.5 font-medium leading-snug">
           Manage gaming stations, availability and slot closures
         </p>
       </header>
 
-      {/* 4-Metric Live Station Summary Strip */}
+      {/* 2-Column Live Station Status Summary Bar (Active vs Disabled, full width) */}
       <section
         aria-label="Stations overview metrics"
-        className="rounded-2xl bg-[#120B20]/95 border border-purple-500/30 px-1.5 sm:px-3 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.45),0_0_20px_rgba(124,58,237,0.12)] backdrop-blur-md grid grid-cols-4 divide-x divide-white/[0.08]"
+        className="shrink-0 rounded-2xl bg-[#120B20]/95 border border-purple-500/30 px-2 sm:px-4 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.45),0_0_20px_rgba(124,58,237,0.12)] backdrop-blur-md grid grid-cols-2 divide-x divide-white/[0.08]"
       >
-        <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 px-1">
-          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-emerald-500/15 border border-emerald-400/35 flex items-center justify-center shrink-0">
-            <Gamepad2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-300" aria-hidden="true" />
+        <div className="flex items-center justify-center gap-2.5 sm:gap-3 px-2 py-0.5">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-emerald-500/15 border border-emerald-400/35 flex items-center justify-center shrink-0">
+            <Power className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-emerald-300" aria-hidden="true" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs sm:text-base font-extrabold text-white leading-none tabular-nums">
-              {loading ? '—' : summary.totalStations}
-            </p>
-            <p className="text-[9px] sm:text-[11px] text-[#A9A0BC] mt-0.5 leading-[1.15]">
-              Total Stations
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 px-1">
-          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-emerald-500/15 border border-emerald-400/35 flex items-center justify-center shrink-0">
-            <Power className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-300" aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs sm:text-base font-extrabold text-white leading-none tabular-nums">
+          <div className="min-w-0 flex items-baseline gap-2">
+            <span className="text-lg sm:text-xl font-extrabold text-white leading-none tabular-nums">
               {loading ? '—' : summary.activeCount}
-            </p>
-            <p className="text-[9px] sm:text-[11px] text-[#A9A0BC] mt-0.5 leading-[1.15]">
+            </span>
+            <span className="text-xs sm:text-sm font-semibold text-emerald-300/90 leading-none">
               Active
-            </p>
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 px-1">
-          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-rose-500/15 border border-rose-400/35 flex items-center justify-center shrink-0">
-            <Power className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-300" aria-hidden="true" />
+        <div className="flex items-center justify-center gap-2.5 sm:gap-3 px-2 py-0.5">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-rose-500/15 border border-rose-400/35 flex items-center justify-center shrink-0">
+            <Power className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-rose-300" aria-hidden="true" />
           </div>
-          <div className="min-w-0">
-            <p className="text-xs sm:text-base font-extrabold text-white leading-none tabular-nums">
+          <div className="min-w-0 flex items-baseline gap-2">
+            <span className="text-lg sm:text-xl font-extrabold text-white leading-none tabular-nums">
               {loading ? '—' : summary.disabledCount}
-            </p>
-            <p className="text-[9px] sm:text-[11px] text-[#A9A0BC] mt-0.5 leading-[1.15]">
+            </span>
+            <span className="text-xs sm:text-sm font-semibold text-rose-300/90 leading-none">
               Disabled
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 px-1">
-          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-purple-500/20 border border-purple-400/35 flex items-center justify-center shrink-0">
-            <CalendarX2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#D8B4FE]" aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs sm:text-base font-extrabold text-white leading-none tabular-nums">
-              {loading ? '—' : summary.releasedTodayCount}
-            </p>
-            <p className="text-[9px] sm:text-[11px] text-[#A9A0BC] mt-0.5 leading-[1.15]">
-              Closed Slots
-            </p>
+            </span>
           </div>
         </div>
       </section>
@@ -290,14 +266,14 @@ export default function Stations() {
       <div
         role="tablist"
         aria-label="Stations views"
-        className="rounded-full bg-[#120B20]/95 border border-purple-500/30 p-1 grid grid-cols-2 shadow-[0_6px_20px_rgba(0,0,0,0.4)]"
+        className="shrink-0 rounded-full bg-[#120B20]/95 border border-purple-500/30 p-1 grid grid-cols-2 shadow-[0_6px_20px_rgba(0,0,0,0.4)]"
       >
         <button
           type="button"
           role="tab"
           aria-selected={activeSubTab === 'stations'}
           onClick={() => setActiveSubTab('stations')}
-          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeSubTab === 'stations'
               ? 'bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] border border-purple-300/30'
               : 'text-[#A9A0BC] hover:text-white'
@@ -312,7 +288,7 @@ export default function Stations() {
           role="tab"
           aria-selected={activeSubTab === 'closed'}
           onClick={() => setActiveSubTab('closed')}
-          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeSubTab === 'closed'
               ? 'bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] border border-purple-300/30'
               : 'text-[#A9A0BC] hover:text-white'
@@ -327,7 +303,7 @@ export default function Stations() {
       {feedback && (
         <div
           role={feedback.type === 'error' ? 'alert' : 'status'}
-          className={`rounded-2xl px-3.5 py-2.5 text-xs font-semibold border flex items-start gap-2.5 ${
+          className={`shrink-0 rounded-2xl px-3.5 py-2.5 text-xs font-semibold border flex items-start gap-2.5 ${
             feedback.type === 'error'
               ? 'bg-rose-500/15 border-rose-500/40 text-rose-200'
               : 'bg-emerald-500/15 border-emerald-400/40 text-emerald-200'
@@ -370,7 +346,10 @@ export default function Stations() {
             </p>
           </div>
         ) : (
-          <section aria-label="Gaming stations list" className="space-y-2.5">
+          <section
+            aria-label="Gaming stations list"
+            className="flex-1 min-h-0 flex flex-col gap-1.5 sm:gap-2"
+          >
             {stations.map((station) => (
               <StationManagementCard
                 key={station.id}

@@ -16,6 +16,8 @@ import SpotBookingDetails from '../pages/admin/SpotBookingDetails';
 import CheckIn from '../pages/admin/CheckIn';
 import Stations from '../pages/admin/Stations';
 import CloseSlot from '../pages/admin/CloseSlot';
+import AdminSettings from '../pages/admin/Settings';
+import EditProfile from '../pages/admin/EditProfile';
 import ProtectedRoute from './ProtectedRoute';
 import AdminRoute from './AdminRoute';
 import AuthLayout from '../components/auth/AuthLayout';
@@ -156,6 +158,8 @@ export default function AppRoutes() {
         <Route path="/admin/check-in" element={<CheckIn />} />
         <Route path="/admin/stations" element={<Stations />} />
         <Route path="/admin/stations/:stationId/close-slots" element={<CloseSlot />} />
+        <Route path="/admin/settings" element={<AdminSettings />} />
+        <Route path="/admin/settings/edit-profile" element={<EditProfile />} />
       </Route>
 
       {/* Catch-all redirect */}
