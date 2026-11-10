@@ -9,8 +9,8 @@ import BookedSlots from '../../components/customer/BookedSlots';
 import SlotCreator from '../../components/customer/SlotCreator';
 import PrimaryButton from '../../components/auth/PrimaryButton';
 import { getStationById, STATIONS as DEFAULT_STATIONS } from '../../services/mock/stationMockData';
-import { fetchActiveStations, resolveStationFromList } from '../../services/stationService';
-import { fetchBookedSlotsForStation } from '../../services/bookingService';
+import { fetchActiveStations, getCachedStations, resolveStationFromList } from '../../services/stationService';
+import { fetchBookedSlotsForStation, getCachedBookedSlots } from '../../services/bookingService';
 import { getEligibleBookingDates } from '../../utils/dateEligibility';
 import { calculateEndTime } from '../../utils/bookingTimeUtils';
 import { validateSlotAvailability } from '../../utils/bookingAvailability';
@@ -23,17 +23,28 @@ export default function BookSlot() {
   const editState = location.state || {};
   const stationParam = editState.stationSlug || editState.stationId || searchParams.get('station');
 
-  // 1. Live Stations Catalog & Selected Station
-  const [stations, setStations] = useState(DEFAULT_STATIONS);
-  const [selectedStation, setSelectedStation] = useState(() => getStationById(stationParam));
+  // 1. Live Stations Catalog & Selected Station (initialized synchronously from cache)
+  const [stations, setStations] = useState(() => getCachedStations() || DEFAULT_STATIONS);
+  const [selectedStation, setSelectedStation] = useState(() => {
+    const cached = getCachedStations();
+    if (cached && cached.length > 0) {
+      return resolveStationFromList(cached, stationParam);
+    }
+    return getStationById(stationParam);
+  });
 
   useEffect(() => {
     let mounted = true;
     async function loadStations() {
       const { stations: liveList } = await fetchActiveStations();
       if (!mounted || !liveList || liveList.length === 0) return;
-      setStations(liveList);
-      setSelectedStation((prev) => resolveStationFromList(liveList, stationParam || prev?.slug || prev?.id));
+      setStations((prev) =>
+        JSON.stringify(prev) === JSON.stringify(liveList) ? prev : liveList
+      );
+      setSelectedStation((prev) => {
+        const next = resolveStationFromList(liveList, stationParam || prev?.slug || prev?.id);
+        return prev?.id === next?.id && prev?.isLiveDb === next?.isLiveDb ? prev : next;
+      });
     }
     loadStations();
     return () => {
@@ -74,7 +85,9 @@ export default function BookSlot() {
   const [duration, setDuration] = useState(() => editState.duration || 90);
 
   // 5. Live Booked Slots for Station & Date (anonymized from Supabase RPC)
-  const [bookedSlots, setBookedSlots] = useState([]);
+  const [bookedSlots, setBookedSlots] = useState(
+    () => getCachedBookedSlots(selectedStation, selectedDate?.isoDate) || []
+  );
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   // 6. UI & Modal States
@@ -82,7 +95,12 @@ export default function BookSlot() {
 
   const refreshSlots = useCallback(async () => {
     if (!selectedStation || !selectedDate?.isoDate) return;
-    setLoadingSlots(true);
+    const cached = getCachedBookedSlots(selectedStation, selectedDate.isoDate);
+    if (cached) {
+      setBookedSlots(cached);
+    } else if (selectedStation.isLiveDb !== false) {
+      setLoadingSlots(true);
+    }
     const { slots } = await fetchBookedSlotsForStation(selectedStation, selectedDate.isoDate);
     setBookedSlots(slots);
     setLoadingSlots(false);

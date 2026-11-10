@@ -19,6 +19,26 @@ const STATUS_LABELS = {
   expired: 'Expired',
 };
 
+// In-memory route caches to prevent skeleton flashes on Back/route transitions
+const bookedSlotsCache = new Map();
+const customerBookingsCache = new Map();
+
+export function getCachedBookedSlots(station, isoDate) {
+  if (!station?.id || !isoDate) return null;
+  const key = `${station.id}_${isoDate}`;
+  return bookedSlotsCache.has(key) ? bookedSlotsCache.get(key) : null;
+}
+
+export function getCachedCustomerBookings(userId) {
+  if (!userId) return null;
+  return customerBookingsCache.has(userId) ? customerBookingsCache.get(userId) : null;
+}
+
+export function invalidateBookingCaches() {
+  bookedSlotsCache.clear();
+  customerBookingsCache.clear();
+}
+
 /**
  * Maps a Supabase bookings + joined stations row to UI card/modal structure
  */
@@ -110,10 +130,11 @@ export async function fetchBookedSlotsForStation(station, isoDate) {
       };
     });
 
+    bookedSlotsCache.set(`${station.id}_${isoDate}`, mappedSlots);
     return { slots: mappedSlots, error: null };
   } catch (err) {
     console.error('Error fetching station booked slots:', err);
-    return { slots: [], error: err };
+    return { slots: getCachedBookedSlots(station, isoDate) || [], error: err };
   }
 }
 
@@ -160,10 +181,11 @@ export async function fetchCustomerBookings(userId) {
     if (error) throw error;
 
     const bookings = (data || []).map((row) => mapDbBookingToUi(row));
+    customerBookingsCache.set(userId, bookings);
     return { bookings, error: null };
   } catch (err) {
     console.error('Error fetching customer bookings:', err);
-    return { bookings: [], error: err };
+    return { bookings: getCachedCustomerBookings(userId) || [], error: err };
   }
 }
 
@@ -201,6 +223,7 @@ export async function createSupabaseBooking({
     const stationRow = data?.station || station;
     const mapped = mapDbBookingToUi(bookingRow, stationRow);
 
+    invalidateBookingCaches();
     window.dispatchEvent(new Event('oliveal_booking_updated'));
     return { booking: mapped, error: null };
   } catch (err) {

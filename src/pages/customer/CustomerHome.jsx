@@ -3,20 +3,24 @@ import CustomerHeader from '../../components/customer/CustomerHeader';
 import HeroSection from '../../components/customer/HeroSection';
 import NavigationCard from '../../components/customer/NavigationCard';
 import StationCard from '../../components/customer/StationCard';
-import { fetchActiveStations } from '../../services/stationService';
+import { fetchActiveStations, getCachedStations } from '../../services/stationService';
 
 export default function CustomerHome() {
-  const [stations, setStations] = useState([]);
-  const [loadingStations, setLoadingStations] = useState(true);
+  const [stations, setStations] = useState(() => getCachedStations() || []);
+  const [loadingStations, setLoadingStations] = useState(() => !getCachedStations());
 
   useEffect(() => {
     let mounted = true;
     async function loadStations() {
       const { stations: list } = await fetchActiveStations();
-      if (mounted) {
-        setStations(list);
-        setLoadingStations(false);
-      }
+      if (!mounted) return;
+      setStations((prev) => {
+        if (prev.length === list.length && JSON.stringify(prev) === JSON.stringify(list)) {
+          return prev;
+        }
+        return list;
+      });
+      setLoadingStations(false);
     }
     loadStations();
     return () => {

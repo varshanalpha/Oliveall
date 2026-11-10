@@ -1,11 +1,20 @@
 /**
  * OLIVEAL GAMING ZONE — SUPABASE STATIONS SERVICE
  * Fetches active gaming stations, capacity limits, and rates from public.stations.
- * Gracefully handles pre-migration state if 02_stations_and_bookings.sql has not been applied yet.
+ * Implements memory + sessionStorage caching (stale-while-revalidate) so navigating
+ * between /dashboard, /book-slot, and /confirm-booking never reloads skeletons.
  */
 
 import { supabase } from '../lib/supabase';
 import { STATIONS as DEFAULT_STATIONS } from './mock/stationMockData';
+
+const CACHE_KEY = 'oliveal_stations_cache_v1';
+const CACHE_TTL_MS = 60 * 1000; // 1 minute fresh window
+
+let memoryStationsCache = null;
+let memoryCacheTimestamp = 0;
+let memoryIsFallback = false;
+let inFlightStationsPromise = null;
 
 export function mapDbStationToUi(row) {
   if (!row) return null;
@@ -44,59 +53,134 @@ function getDefaultStationsMapped() {
 }
 
 /**
- * Loads all active stations ordered by display_order from Supabase
+ * Synchronously retrieves cached stations (memory first, then sessionStorage)
+ * so components render immediately on mount with zero skeleton flash.
  */
-export async function fetchActiveStations() {
+export function getCachedStations() {
+  if (memoryStationsCache && memoryStationsCache.length > 0) {
+    return memoryStationsCache;
+  }
+
   try {
-    const { data, error } = await supabase
-      .from('stations')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true });
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed?.stations) && parsed.stations.length > 0) {
+        memoryStationsCache = parsed.stations;
+        memoryCacheTimestamp = parsed.timestamp || 0;
+        memoryIsFallback = false;
+        return memoryStationsCache;
+      }
+    }
+  } catch (e) {
+    // ignore storage access issues
+  }
 
-    if (error) {
-      // Detect missing table / schema cache before migration is applied
-      const isMissingSchema =
-        error.code === '42P01' ||
-        error.code === 'PGRST205' ||
-        error.message?.includes('does not exist') ||
-        error.message?.includes('schema cache');
+  return null;
+}
 
-      if (isMissingSchema) {
-        console.warn(
-          'Supabase public.stations table not found yet. Using static station catalog until migration 02_stations_and_bookings.sql is executed.'
-        );
+function saveStationsToCache(stations, isFallback = false) {
+  memoryStationsCache = stations;
+  memoryCacheTimestamp = Date.now();
+  memoryIsFallback = isFallback;
+
+  if (!isFallback && stations.length > 0) {
+    try {
+      sessionStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify({ stations, timestamp: memoryCacheTimestamp })
+      );
+    } catch (e) {
+      // ignore storage errors
+    }
+  }
+}
+
+/**
+ * Loads all active stations ordered by display_order from Supabase.
+ * Deduplicates concurrent calls and serves fresh cache hits instantaneously.
+ */
+export async function fetchActiveStations({ forceRefresh = false } = {}) {
+  const cached = getCachedStations();
+  const isCacheFresh =
+    cached &&
+    !memoryIsFallback &&
+    Date.now() - memoryCacheTimestamp < CACHE_TTL_MS;
+
+  if (!forceRefresh && isCacheFresh) {
+    return {
+      stations: cached,
+      isFallback: false,
+      error: null,
+    };
+  }
+
+  if (inFlightStationsPromise && !forceRefresh) {
+    return inFlightStationsPromise;
+  }
+
+  inFlightStationsPromise = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stations')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) {
+        const isMissingSchema =
+          error.code === '42P01' ||
+          error.code === 'PGRST205' ||
+          error.message?.includes('does not exist') ||
+          error.message?.includes('schema cache');
+
+        if (isMissingSchema) {
+          console.warn(
+            'Supabase public.stations table not found yet. Using static station catalog until migration 02_stations_and_bookings.sql is executed.'
+          );
+          const fallback = getDefaultStationsMapped();
+          saveStationsToCache(fallback, true);
+          return {
+            stations: fallback,
+            isFallback: true,
+            error: null,
+          };
+        }
+
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
         return {
-          stations: getDefaultStationsMapped(),
-          isFallback: true,
+          stations: [],
+          isFallback: false,
           error: null,
         };
       }
 
-      throw error;
-    }
+      const mapped = data.map(mapDbStationToUi);
+      saveStationsToCache(mapped, false);
 
-    if (!data || data.length === 0) {
       return {
-        stations: [],
+        stations: mapped,
         isFallback: false,
         error: null,
       };
+    } catch (err) {
+      console.error('Error loading stations from Supabase:', err);
+      const fallback = getCachedStations() || getDefaultStationsMapped();
+      saveStationsToCache(fallback, !fallback[0]?.isLiveDb);
+      return {
+        stations: fallback,
+        isFallback: !fallback[0]?.isLiveDb,
+        error: err,
+      };
+    } finally {
+      inFlightStationsPromise = null;
     }
+  })();
 
-    return {
-      stations: data.map(mapDbStationToUi),
-      isFallback: false,
-      error: null,
-    };
-  } catch (err) {
-    console.error('Error loading stations from Supabase:', err);
-    return {
-      stations: getDefaultStationsMapped(),
-      isFallback: true,
-      error: err,
-    };
-  }
+  return inFlightStationsPromise;
 }
 
 /**
@@ -115,4 +199,3 @@ export function resolveStationFromList(stations, param) {
     ) || stations[0]
   );
 }
-

@@ -5,14 +5,14 @@ import CustomerHeader from '../../components/customer/CustomerHeader';
 import BookingCard from '../../components/customer/BookingCard';
 import BookingQrModal from '../../components/customer/BookingQrModal';
 import { useAuth } from '../../context/AuthContext';
-import { fetchCustomerBookings } from '../../services/bookingService';
+import { fetchCustomerBookings, getCachedCustomerBookings } from '../../services/bookingService';
 
 export default function MyBookings() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'past'
-  const [bookings, setBookings] = useState([]);
-  const [loadingBookings, setLoadingBookings] = useState(true);
+  const [bookings, setBookings] = useState(() => getCachedCustomerBookings(user?.id) || []);
+  const [loadingBookings, setLoadingBookings] = useState(() => !getCachedCustomerBookings(user?.id));
   const [selectedQrBooking, setSelectedQrBooking] = useState(null);
 
   const loadBookings = useCallback(async () => {
@@ -21,7 +21,13 @@ export default function MyBookings() {
       setLoadingBookings(false);
       return;
     }
-    setLoadingBookings(true);
+    const cached = getCachedCustomerBookings(user.id);
+    if (cached) {
+      setBookings(cached);
+      setLoadingBookings(false);
+    } else {
+      setLoadingBookings(true);
+    }
     const { bookings: list } = await fetchCustomerBookings(user.id);
     setBookings(list);
     setLoadingBookings(false);
