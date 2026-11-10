@@ -52,6 +52,7 @@ export default function Stations() {
   const registerRefreshHandler = outletContext?.registerRefreshHandler;
 
   const [activeSubTab, setActiveSubTab] = useState('stations'); // stations | closed
+  const [subTabTransition, setSubTabTransition] = useState('');
   const [stations, setStations] = useState([]);
   const [summary, setSummary] = useState({
     totalStations: 0,
@@ -209,10 +210,18 @@ export default function Stations() {
     });
   };
 
+  const handleSelectSubTab = (nextTab) => {
+    if (nextTab === activeSubTab) return;
+    setSubTabTransition(
+      nextTab === 'closed' ? 'animate-tab-from-right' : 'animate-tab-from-left'
+    );
+    setActiveSubTab(nextTab);
+  };
+
   return (
     <main
-      className={`relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-2.5 sm:pt-4 flex flex-col ${
-        activeSubTab === 'stations' ? 'pb-[84px] gap-2 sm:gap-2.5' : 'pb-28 space-y-3.5 sm:space-y-4'
+      className={`relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-2.5 sm:pt-4 flex flex-col gap-2 sm:gap-2.5 ${
+        activeSubTab === 'stations' ? 'pb-[84px]' : 'pb-28'
       }`}
     >
       {/* Page Heading */}
@@ -262,41 +271,62 @@ export default function Stations() {
         </div>
       </section>
 
-      {/* Segmented Tab Control matching Reference */}
+      {/* Segmented Tab Control with smooth GPU sliding highlight pill */}
       <div
         role="tablist"
         aria-label="Stations views"
-        className="shrink-0 rounded-full bg-[#120B20]/95 border border-purple-500/30 p-1 grid grid-cols-2 shadow-[0_6px_20px_rgba(0,0,0,0.4)]"
+        className="shrink-0 rounded-full bg-[#120B20]/95 border border-purple-500/30 p-1 shadow-[0_6px_20px_rgba(0,0,0,0.4)]"
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSubTab === 'stations'}
-          onClick={() => setActiveSubTab('stations')}
-          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-            activeSubTab === 'stations'
-              ? 'bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] border border-purple-300/30'
-              : 'text-[#A9A0BC] hover:text-white'
-          }`}
-        >
-          <Gamepad2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-          <span>Stations</span>
-        </button>
+        <div className="relative grid grid-cols-2 items-stretch">
+          <div
+            aria-hidden="true"
+            data-testid="stations-subtab-indicator"
+            style={{
+              transform: `translate3d(${activeSubTab === 'closed' ? '100%' : '0%'}, 0, 0)`,
+            }}
+            className="pointer-events-none absolute top-0 bottom-0 left-0 w-1/2 rounded-full bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] border border-purple-300/35 shadow-[0_0_20px_rgba(124,58,237,0.5)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none will-change-transform"
+          />
 
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSubTab === 'closed'}
-          onClick={() => setActiveSubTab('closed')}
-          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-            activeSubTab === 'closed'
-              ? 'bg-gradient-to-r from-[#8B5CF6] to-[#7C3AED] text-white shadow-[0_0_20px_rgba(124,58,237,0.5)] border border-purple-300/30'
-              : 'text-[#A9A0BC] hover:text-white'
-          }`}
-        >
-          <CalendarX2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-          <span>Closed Slots</span>
-        </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSubTab === 'stations'}
+            onClick={() => handleSelectSubTab('stations')}
+            className={`relative z-10 flex items-center justify-center gap-2 py-2 px-3 rounded-full text-xs sm:text-sm font-bold transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+              activeSubTab === 'stations'
+                ? 'text-white'
+                : 'text-[#A9A0BC] hover:text-white'
+            }`}
+          >
+            <Gamepad2
+              className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                activeSubTab === 'stations' ? 'scale-105' : ''
+              }`}
+              aria-hidden="true"
+            />
+            <span>Stations</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSubTab === 'closed'}
+            onClick={() => handleSelectSubTab('closed')}
+            className={`relative z-10 flex items-center justify-center gap-2 py-2 px-3 rounded-full text-xs sm:text-sm font-bold transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+              activeSubTab === 'closed'
+                ? 'text-white'
+                : 'text-[#A9A0BC] hover:text-white'
+            }`}
+          >
+            <CalendarX2
+              className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                activeSubTab === 'closed' ? 'scale-105' : ''
+              }`}
+              aria-hidden="true"
+            />
+            <span>Closed Slots</span>
+          </button>
+        </div>
       </div>
 
       {/* Action / Mutation Feedback Toast */}
@@ -318,57 +348,66 @@ export default function Stations() {
         </div>
       )}
 
-      {/* Main Tab Body */}
-      {activeSubTab === 'stations' ? (
-        loading ? (
-          <StationsListSkeleton />
-        ) : error ? (
-          <div
-            role="alert"
-            className="rounded-2xl bg-rose-500/15 border border-rose-500/40 p-5 text-center space-y-3"
-          >
-            <AlertCircle className="w-6 h-6 text-rose-400 mx-auto" aria-hidden="true" />
-            <p className="text-xs sm:text-sm text-rose-200">{error}</p>
-            <button
-              type="button"
-              onClick={() => loadStations()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 text-xs font-bold text-white cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Retry</span>
-            </button>
-          </div>
-        ) : stations.length === 0 ? (
-          <div className="rounded-2xl bg-[#120B20]/95 border border-purple-500/25 p-7 text-center space-y-1.5">
-            <p className="text-sm font-bold text-white">No stations configured in database</p>
-            <p className="text-xs text-[#A9A0BC]">
-              Run migration 02_stations_and_bookings.sql to seed the 6 gaming stations.
-            </p>
-          </div>
-        ) : (
-          <section
-            aria-label="Gaming stations list"
-            className="flex-1 min-h-0 flex flex-col gap-1.5 sm:gap-2"
-          >
-            {stations.map((station) => (
-              <StationManagementCard
-                key={station.id}
-                station={station}
-                toggling={togglingId === station.id}
-                onToggleStatus={handleToggleStation}
-                onOpenCloseSlots={handleOpenCloseSlots}
-              />
-            ))}
-          </section>
-        )
-      ) : (
-        <ReleasedSlotsTab
-          bookings={releasedBookings}
-          loading={releasedLoading}
-          error={releasedError}
-          onRetry={loadReleasedSlots}
-        />
-      )}
+      {/* Main Tab Body with smooth directional slide transition */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-x-clip">
+        <div
+          key={activeSubTab}
+          role="tabpanel"
+          aria-label={activeSubTab === 'stations' ? 'Gaming stations panel' : 'Closed slots panel'}
+          className={`flex-1 min-h-0 flex flex-col ${subTabTransition}`}
+        >
+          {activeSubTab === 'stations' ? (
+            loading ? (
+              <StationsListSkeleton />
+            ) : error ? (
+              <div
+                role="alert"
+                className="rounded-2xl bg-rose-500/15 border border-rose-500/40 p-5 text-center space-y-3"
+              >
+                <AlertCircle className="w-6 h-6 text-rose-400 mx-auto" aria-hidden="true" />
+                <p className="text-xs sm:text-sm text-rose-200">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => loadStations()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 text-xs font-bold text-white cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Retry</span>
+                </button>
+              </div>
+            ) : stations.length === 0 ? (
+              <div className="rounded-2xl bg-[#120B20]/95 border border-purple-500/25 p-7 text-center space-y-1.5">
+                <p className="text-sm font-bold text-white">No stations configured in database</p>
+                <p className="text-xs text-[#A9A0BC]">
+                  Run migration 02_stations_and_bookings.sql to seed the 6 gaming stations.
+                </p>
+              </div>
+            ) : (
+              <section
+                aria-label="Gaming stations list"
+                className="flex-1 min-h-0 flex flex-col gap-1.5 sm:gap-2"
+              >
+                {stations.map((station) => (
+                  <StationManagementCard
+                    key={station.id}
+                    station={station}
+                    toggling={togglingId === station.id}
+                    onToggleStatus={handleToggleStation}
+                    onOpenCloseSlots={handleOpenCloseSlots}
+                  />
+                ))}
+              </section>
+            )
+          ) : (
+            <ReleasedSlotsTab
+              bookings={releasedBookings}
+              loading={releasedLoading}
+              error={releasedError}
+              onRetry={loadReleasedSlots}
+            />
+          )}
+        </div>
+      </div>
     </main>
   );
 }

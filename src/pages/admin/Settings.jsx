@@ -247,9 +247,9 @@ export default function AdminSettings() {
   const activeModalConfig = pendingConfirmKey ? CONFIRM_MODAL_CONFIG[pendingConfirmKey] : null;
 
   return (
-    <main className="relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-3.5 sm:pt-4 pb-28 space-y-3.5 sm:space-y-4">
+    <main className="relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-3.5 sm:pt-4 pb-[88px] flex flex-col gap-3.5 sm:gap-4">
       {/* Page Heading */}
-      <header className="px-0.5">
+      <header className="px-0.5 shrink-0">
         <div className="flex items-center gap-2.5">
           <SettingsIcon className="w-6 h-6 sm:w-7 sm:h-7 text-[#C4B5FD] shrink-0" aria-hidden="true" />
           <h1 className="text-[1.6rem] sm:text-[1.75rem] font-extrabold text-white tracking-tight leading-tight">
@@ -304,9 +304,9 @@ export default function AdminSettings() {
       {/* SECTION A — PROFILE DETAILS */}
       <section
         aria-labelledby="settings-profile-heading"
-        className="rounded-2xl bg-[#120B20]/95 border border-purple-500/30 shadow-[0_8px_28px_rgba(0,0,0,0.45),0_0_24px_rgba(124,58,237,0.12)] backdrop-blur-md overflow-hidden"
+        className="flex-[0.36] min-h-[158px] flex flex-col rounded-2xl bg-[#120B20]/95 border border-purple-500/30 shadow-[0_8px_28px_rgba(0,0,0,0.45),0_0_24px_rgba(124,58,237,0.12)] backdrop-blur-md overflow-hidden"
       >
-        <div className="px-4 py-3 border-b border-white/[0.08]">
+        <div className="shrink-0 px-4 py-3 border-b border-white/[0.08]">
           <div className="flex items-center gap-2">
             <User className="w-4 h-4 text-[#C4B5FD] shrink-0" aria-hidden="true" />
             <h2
@@ -321,10 +321,10 @@ export default function AdminSettings() {
           </p>
         </div>
 
-        <div className="p-4 flex items-center justify-between gap-3">
+        <div className="flex-1 px-4 py-4 flex items-center justify-between gap-3">
           {loading && !adminProfile ? (
             <div className="w-full h-14 flex items-center gap-3 animate-pulse">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/10 shrink-0" />
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/10 shrink-0" />
               <div className="flex-1 space-y-2">
                 <div className="h-4 w-32 rounded bg-white/10" />
                 <div className="h-3 w-44 rounded bg-white/[0.06]" />
@@ -332,8 +332,8 @@ export default function AdminSettings() {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-[#9333EA] to-[#6D28D9] border border-purple-300/45 shadow-[0_0_18px_rgba(147,51,234,0.4)] flex items-center justify-center text-white text-lg sm:text-xl font-extrabold shrink-0 overflow-hidden">
+              <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-[#9333EA] to-[#6D28D9] border border-purple-300/45 shadow-[0_0_18px_rgba(147,51,234,0.4)] flex items-center justify-center text-white text-xl sm:text-2xl font-extrabold shrink-0 overflow-hidden">
                   {hasAvatar ? (
                     <img
                       src={adminProfile.avatar_url}
@@ -382,9 +382,9 @@ export default function AdminSettings() {
       {/* SECTION B — BOOKING CONTROLS */}
       <section
         aria-labelledby="settings-booking-controls-heading"
-        className="rounded-2xl bg-[#120B20]/95 border border-purple-500/30 shadow-[0_8px_28px_rgba(0,0,0,0.45),0_0_24px_rgba(124,58,237,0.12)] backdrop-blur-md overflow-hidden"
+        className="flex-[0.64] min-h-[235px] flex flex-col rounded-2xl bg-[#120B20]/95 border border-purple-500/30 shadow-[0_8px_28px_rgba(0,0,0,0.45),0_0_24px_rgba(124,58,237,0.12)] backdrop-blur-md overflow-hidden"
       >
-        <div className="px-4 py-3 border-b border-white/[0.08]">
+        <div className="shrink-0 px-4 py-3.5 border-b border-white/[0.08]">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-[#C4B5FD] shrink-0" aria-hidden="true" />
             <h2
@@ -399,11 +399,11 @@ export default function AdminSettings() {
           </p>
         </div>
 
-        <div className="divide-y divide-white/[0.08]">
+        <div className="flex-1 flex flex-col divide-y divide-white/[0.08]">
           {/* Control 1: Disable Bookings */}
-          <div className="p-4 flex items-center justify-between gap-3">
-            <div className="flex items-start gap-3 min-w-0 flex-1">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-400/35 flex items-center justify-center shrink-0 mt-0.5">
+          <div className="flex-1 px-4 py-4 flex items-center justify-between gap-3.5">
+            <div className="flex items-center gap-3.5 min-w-0 flex-1">
+              <div className="w-11 h-11 rounded-xl bg-rose-500/15 border border-rose-400/35 flex items-center justify-center shrink-0">
                 <CalendarX2 className="w-5 h-5 text-rose-300" aria-hidden="true" />
               </div>
               <div className="min-w-0">
@@ -440,9 +440,9 @@ export default function AdminSettings() {
           </div>
 
           {/* Control 2: Disable Advance Bookings */}
-          <div className="p-4 flex items-center justify-between gap-3">
-            <div className="flex items-start gap-3 min-w-0 flex-1">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-400/35 flex items-center justify-center shrink-0 mt-0.5">
+          <div className="flex-1 px-4 py-4 flex items-center justify-between gap-3.5">
+            <div className="flex items-center gap-3.5 min-w-0 flex-1">
+              <div className="w-11 h-11 rounded-xl bg-purple-500/15 border border-purple-400/35 flex items-center justify-center shrink-0">
                 <Layers className="w-5 h-5 text-[#D8B4FE]" aria-hidden="true" />
               </div>
               <div className="min-w-0">
@@ -487,7 +487,7 @@ export default function AdminSettings() {
         type="button"
         onClick={handleLogout}
         disabled={loggingOut}
-        className="w-full py-3.5 px-5 rounded-2xl bg-rose-950/25 hover:bg-rose-900/35 border border-rose-500/45 text-sm font-bold text-rose-300 hover:text-white flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(0,0,0,0.4)] transition cursor-pointer disabled:opacity-55"
+        className="shrink-0 w-full py-3.5 px-5 rounded-2xl bg-rose-950/25 hover:bg-rose-900/35 border border-rose-500/45 text-sm font-bold text-rose-300 hover:text-white flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(0,0,0,0.4)] transition cursor-pointer disabled:opacity-55"
       >
         {loggingOut ? (
           <>

@@ -149,9 +149,9 @@ export default function EditProfile() {
   const initial = (fullName?.trim() || email || 'A').charAt(0).toUpperCase();
 
   return (
-    <main className="relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-3.5 sm:pt-4 pb-28 space-y-4">
+    <main className="relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-3.5 sm:pt-4 pb-[88px] flex flex-col gap-4">
       {/* Header matching Edit Profile reference */}
-      <header className="flex items-center gap-3 px-0.5">
+      <header className="shrink-0 flex items-center gap-3 px-0.5">
         <button
           type="button"
           onClick={() => navigate('/admin/settings')}
@@ -175,8 +175,9 @@ export default function EditProfile() {
       <form
         noValidate
         onSubmit={handleSubmit}
-        className="rounded-2xl bg-[#120B20]/95 border border-purple-500/30 p-4 sm:p-6 shadow-[0_8px_28px_rgba(0,0,0,0.45),0_0_24px_rgba(124,58,237,0.12)] backdrop-blur-md space-y-4"
+        className="flex-1 flex flex-col justify-between rounded-2xl bg-[#120B20]/95 border border-purple-500/30 p-5 sm:p-6 shadow-[0_8px_28px_rgba(0,0,0,0.45),0_0_24px_rgba(124,58,237,0.12)] backdrop-blur-md gap-5"
       >
+        <div className="space-y-5">
         {/* Profile Picture Uploader */}
         <div className="flex flex-col items-center gap-2.5 pt-1 pb-2">
           <div className="relative">
@@ -289,7 +290,9 @@ export default function EditProfile() {
             <span>Email address cannot be changed.</span>
           </p>
         </div>
+        </div>
 
+        <div className="space-y-3">
         {error && (
           <div
             role="alert"
@@ -328,6 +331,7 @@ export default function EditProfile() {
           >
             Cancel
           </button>
+        </div>
         </div>
       </form>
     </main>
