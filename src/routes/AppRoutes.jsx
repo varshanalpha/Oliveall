@@ -9,6 +9,7 @@ import CustomerHome from '../pages/customer/CustomerHome';
 import BookSlot from '../pages/customer/BookSlot';
 import ConfirmBooking from '../pages/customer/ConfirmBooking';
 import MyBookings from '../pages/customer/MyBookings';
+import AdminShell from '../components/admin/AdminShell';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import SpotBooking from '../pages/admin/SpotBooking';
 import ProtectedRoute from './ProtectedRoute';
@@ -137,23 +138,17 @@ export default function AppRoutes() {
         }
       />
 
-      {/* Protected Admin Routes */}
+      {/* Protected Admin Routes (wrapped in persistent AdminShell for smooth tab transitions) */}
       <Route
-        path="/admin/dashboard"
         element={
           <AdminRoute>
-            <AdminDashboard />
+            <AdminShell />
           </AdminRoute>
         }
-      />
-      <Route
-        path="/admin/spot-booking"
-        element={
-          <AdminRoute>
-            <SpotBooking />
-          </AdminRoute>
-        }
-      />
+      >
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/spot-booking" element={<SpotBooking />} />
+      </Route>
 
       {/* Catch-all redirect */}
       <Route path="*" element={<Navigate to="/" replace />} />

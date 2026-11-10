@@ -1,72 +1,32 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Info, X } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useOutletContext } from 'react-router-dom';
+import { AlertCircle } from 'lucide-react';
 import { useAdminDashboard } from '../../hooks/useAdminDashboard';
-import AdminHeader from '../../components/admin/AdminHeader';
 import DashboardHeading from '../../components/admin/DashboardHeading';
 import KpiGrid from '../../components/admin/KpiGrid';
 import RecentBookings from '../../components/admin/RecentBookings';
 import AllBookingsModal from '../../components/admin/AllBookingsModal';
-import BottomNavigation from '../../components/admin/BottomNavigation';
 
 /**
- * Oliveal Gaming Zone — Admin Dashboard
+ * Oliveal Gaming Zone — Admin Dashboard View (rendered inside persistent AdminShell).
  * Connects KPI metrics, active station occupancy, and recent bookings directly to Supabase.
  */
 export default function AdminDashboard() {
-  const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const outletContext = useOutletContext();
+  const registerRefreshHandler = outletContext?.registerRefreshHandler;
   const { data, loading, refreshing, error, refresh } = useAdminDashboard();
-  const [notice, setNotice] = useState(null);
   const [allBookingsOpen, setAllBookingsOpen] = useState(false);
 
   useEffect(() => {
-    if (!notice) return undefined;
-    const timer = setTimeout(() => {
-      setNotice(null);
-    }, 3500);
-    return () => clearTimeout(timer);
-  }, [notice]);
-
-  const handleSignOut = useCallback(async () => {
-    try {
-      await signOut();
-    } finally {
-      navigate('/login', { replace: true });
-    }
-  }, [signOut, navigate]);
+    registerRefreshHandler?.(refresh, refreshing);
+  }, [registerRefreshHandler, refresh, refreshing]);
 
   const handleViewAllBookings = useCallback(() => {
     setAllBookingsOpen(true);
   }, []);
 
-  const handleSelectUpcomingTab = useCallback((tabLabel) => {
-    setNotice(`${tabLabel} module will be implemented in an upcoming step.`);
-  }, []);
-
-  const activeAdminProfile = data?.adminProfile || profile;
-
   return (
-    <div className="min-h-[100dvh] w-full bg-[#080510] text-white relative overflow-x-hidden flex flex-col">
-      {/* Subtle controlled ambient radial purple lighting */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 overflow-hidden z-0"
-      >
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[540px] h-[340px] rounded-full bg-[#7C3AED]/14 blur-[120px]" />
-        <div className="absolute top-[42%] left-1/2 -translate-x-1/2 w-[420px] h-[280px] rounded-full bg-[#D946EF]/[0.06] blur-[120px]" />
-      </div>
-
-      <AdminHeader
-        adminProfile={activeAdminProfile}
-        notificationCount={data?.notifications?.count ?? 0}
-        notifications={data?.notifications?.items ?? []}
-        onSignOut={handleSignOut}
-        onRefresh={refresh}
-        refreshing={refreshing}
-      />
-
+    <>
       <main className="relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-4 sm:pt-5 pb-[88px] flex flex-col gap-4 sm:gap-5">
         <DashboardHeading
           title="Admin Dashboard"
@@ -110,34 +70,6 @@ export default function AdminDashboard() {
         initialBookings={data?.recentBookings ?? []}
         totalCount={data?.totalBookingsCount ?? 0}
       />
-
-      {/* Non-blocking status notice for out-of-scope navigation tabs / View All */}
-      {notice && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl bg-[#1A0C2E]/95 border border-purple-400/40 px-3.5 py-2.5 shadow-[0_8px_28px_rgba(0,0,0,0.6),0_0_20px_rgba(124,58,237,0.3)] backdrop-blur-xl flex items-center justify-between gap-2.5"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <Info className="w-4 h-4 text-[#C084FC] shrink-0" aria-hidden="true" />
-            <p className="text-xs text-white font-medium leading-snug">{notice}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            aria-label="Dismiss notice"
-            className="text-[#A9A0BC] hover:text-white p-0.5 rounded cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
-          >
-            <X className="w-3.5 h-3.5" aria-hidden="true" />
-          </button>
-        </div>
-      )}
-
-      <BottomNavigation
-        activeTab="dashboard"
-        onSelectUpcomingTab={handleSelectUpcomingTab}
-      />
-    </div>
+    </>
   );
 }
-

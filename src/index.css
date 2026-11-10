@@ -120,3 +120,47 @@
 .animate-slideRight {
   animation: slideRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Smooth directional GPU-accelerated tab transitions for Admin Shell */
+@keyframes adminTabEnterFromRight {
+  from {
+    opacity: 0;
+    transform: translate3d(22px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes adminTabEnterFromLeft {
+  from {
+    opacity: 0;
+    transform: translate3d(-22px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-tab-from-right {
+  will-change: transform, opacity;
+  animation: adminTabEnterFromRight 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-tab-from-left {
+  will-change: transform, opacity;
+  animation: adminTabEnterFromLeft 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeIn,
+  .animate-scaleUp,
+  .animate-slideRight,
+  .animate-tab-from-right,
+  .animate-tab-from-left {
+    animation-duration: 0.01ms !important;
+    transform: none !important;
+  }
+}

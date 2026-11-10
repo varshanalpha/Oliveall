@@ -1,13 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchAdminDashboardData } from '../services/adminDashboardService';
+import { subscribeToBookingSync } from '../services/spotBookingService';
 
 const FOCUS_REFRESH_THROTTLE_MS = 15000;
 
+// In-memory cache so switching back from Spot Booking to Dashboard renders instantaneously without skeleton flash
+let memoryDashboardCache = null;
+
+export function clearAdminDashboardCache() {
+  memoryDashboardCache = null;
+}
+
 export function useAdminDashboard() {
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(() => memoryDashboardCache);
+  const [loading, setLoading] = useState(() => !memoryDashboardCache);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
@@ -32,6 +40,7 @@ export function useAdminDashboard() {
         if (!mountedRef.current) return;
 
         if (result?.unauthorized) {
+          memoryDashboardCache = null;
           if (result.reason === 'unauthenticated') {
             navigate('/login', { replace: true });
           } else {
@@ -41,6 +50,7 @@ export function useAdminDashboard() {
         }
 
         lastFetchedMsRef.current = Date.now();
+        memoryDashboardCache = result;
         setData(result);
       } catch (err) {
         if (!mountedRef.current) return;
@@ -61,7 +71,7 @@ export function useAdminDashboard() {
 
   useEffect(() => {
     mountedRef.current = true;
-    loadDashboard({ silent: false });
+    loadDashboard({ silent: Boolean(memoryDashboardCache) });
 
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'hidden') return;
@@ -71,13 +81,24 @@ export function useAdminDashboard() {
       }
     };
 
+    const handleBookingUpdated = () => {
+      loadDashboard({ silent: true });
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
     window.addEventListener('focus', handleVisibilityOrFocus);
+    window.addEventListener('oliveal_booking_updated', handleBookingUpdated);
+    const unsubRealtime = subscribeToBookingSync({
+      stationId: null,
+      onBookingChange: handleBookingUpdated,
+    });
 
     return () => {
       mountedRef.current = false;
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('focus', handleVisibilityOrFocus);
+      window.removeEventListener('oliveal_booking_updated', handleBookingUpdated);
+      unsubRealtime();
     };
   }, [loadDashboard]);
 
@@ -93,4 +114,3 @@ export function useAdminDashboard() {
     refresh,
   };
 }
-
