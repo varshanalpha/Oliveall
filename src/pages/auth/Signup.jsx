@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, User } from 'lucide-react';
 import AuthLayout from '../../components/auth/AuthLayout';
@@ -15,7 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export default function Signup() {
   const navigate = useNavigate();
-  const { signUp, signInWithGoogle, verifyOtp, resendOtp } = useAuth();
+  const { user, profile, loading: authLoading, signUp, signInWithGoogle, verifyOtp, resendOtp } = useAuth();
 
   // Form Fields
   const [fullName, setFullName] = useState('');
@@ -31,6 +31,36 @@ export default function Signup() {
 
   // 6-Digit OTP Step State
   const [showOtpStep, setShowOtpStep] = useState(false);
+
+  // Surface any OAuth redirect errors
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const oauthErrorDesc = searchParams.get('error_description') || hashParams.get('error_description');
+    const oauthError = searchParams.get('error') || hashParams.get('error');
+
+    if (oauthError || oauthErrorDesc) {
+      sessionStorage.removeItem('oliveal_oauth_pending');
+      setSocialLoading(false);
+      setStatus({
+        type: 'error',
+        message: oauthErrorDesc || 'Google sign-in was cancelled or failed. Please try again.',
+      });
+    }
+  }, []);
+
+  // Redirect authenticated users or returning Google OAuth sessions to Customer Main Page
+  useEffect(() => {
+    if (!authLoading && user && !loading && !showOtpStep) {
+      sessionStorage.removeItem('oliveal_oauth_pending');
+      const effectiveRole = profile?.role || 'customer';
+      if (effectiveRole === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [user, profile, authLoading, loading, showOtpStep, navigate]);
 
   const validate = () => {
     const newErrors = {};

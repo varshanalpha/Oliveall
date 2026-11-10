@@ -34,20 +34,36 @@ export default function Login() {
     }
   }, []);
 
-  // Handle automatic redirect ONLY for Google OAuth return callbacks
+  // Surface any OAuth redirect errors (e.g. user cancelled Google consent)
   useEffect(() => {
-    const isOAuthReturn =
-      window.location.hash.includes('access_token') ||
-      window.location.search.includes('code');
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const oauthErrorDesc = searchParams.get('error_description') || hashParams.get('error_description');
+    const oauthError = searchParams.get('error') || hashParams.get('error');
 
-    if (isOAuthReturn && !authLoading && user && profile) {
-      if (profile.role === 'admin') {
+    if (oauthError || oauthErrorDesc) {
+      sessionStorage.removeItem('oliveal_oauth_pending');
+      setSocialLoading(false);
+      setStatus({
+        type: 'error',
+        message: oauthErrorDesc || 'Google sign-in was cancelled or failed. Please try again.',
+      });
+    }
+  }, []);
+
+  // Automatically redirect returning Google OAuth sessions or already-authenticated users
+  // Note: active form submits hold `loading === true` until `handleSubmit` finishes strict role checks
+  useEffect(() => {
+    if (!authLoading && user && !loading) {
+      sessionStorage.removeItem('oliveal_oauth_pending');
+      const effectiveRole = profile?.role || 'customer';
+      if (effectiveRole === 'admin') {
         navigate('/admin/dashboard', { replace: true });
       } else {
         navigate('/dashboard', { replace: true });
       }
     }
-  }, [user, profile, authLoading, navigate]);
+  }, [user, profile, authLoading, loading, navigate]);
 
   const validate = () => {
     const newErrors = {};

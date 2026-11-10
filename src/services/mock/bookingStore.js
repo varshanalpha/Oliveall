@@ -1,17 +1,36 @@
 /**
- * OLIVEAL GAMING ZONE — REACTIVE BOOKING STORE
- * Persistent client-side store maintaining booked station slots and customer bookings.
- * Automatically synchronizes with localStorage and dispatches storage change events.
+ * OLIVEAL GAMING ZONE — CLIENT BOOKING STORE
+ * Temporary client-side store synchronized with localStorage until Supabase integration is connected.
+ * Starts completely clean with zero pre-seeded mock bookings.
  */
 
 import { INITIAL_STATION_SLOTS, INITIAL_CUSTOMER_BOOKINGS } from './bookingMockData';
+import {
+  calculateStationCharge,
+  calculatePlatformFee,
+  calculateTotalAmount,
+} from '../../utils/pricingUtils';
 
 const STORAGE_KEYS = {
-  SLOTS: 'oliveal_mock_station_slots_v2',
-  BOOKINGS: 'oliveal_mock_customer_bookings_v2',
+  SLOTS: 'oliveal_station_slots_v3',
+  BOOKINGS: 'oliveal_customer_bookings_v3',
 };
 
-// Retrieve or initialize station booked slots
+// Clear any legacy pre-seeded v1/v2 mock caches from browser storage
+(function purgeLegacyMockData() {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem('oliveal_mock_station_slots_v1');
+      localStorage.removeItem('oliveal_mock_customer_bookings_v1');
+      localStorage.removeItem('oliveal_mock_station_slots_v2');
+      localStorage.removeItem('oliveal_mock_customer_bookings_v2');
+    }
+  } catch (e) {
+    // ignore storage access issues
+  }
+})();
+
+// Retrieve station booked slots (starts empty)
 export function getStoredStationSlots() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SLOTS);
@@ -19,11 +38,10 @@ export function getStoredStationSlots() {
   } catch (e) {
     console.error('Failed to read stored slots:', e);
   }
-  // Initialize with seed data
   try {
     localStorage.setItem(STORAGE_KEYS.SLOTS, JSON.stringify(INITIAL_STATION_SLOTS));
   } catch (e) {
-    console.error('Failed to write initial slots:', e);
+    console.error('Failed to initialize slots:', e);
   }
   return INITIAL_STATION_SLOTS;
 }
@@ -32,12 +50,11 @@ export function getStoredStationSlots() {
 export function getBookedSlotsForStation(stationId, isoDate = '') {
   const allSlots = getStoredStationSlots();
   const stationSlots = allSlots[stationId.toLowerCase()] || [];
-  
-  // Filter by date if present on the slot; default slots apply to today/tomorrow
+
   return stationSlots.filter((slot) => !slot.isoDate || slot.isoDate === isoDate);
 }
 
-// Retrieve or initialize customer bookings list
+// Retrieve customer bookings list (starts empty)
 export function getCustomerBookings() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.BOOKINGS);
@@ -45,11 +62,10 @@ export function getCustomerBookings() {
   } catch (e) {
     console.error('Failed to read customer bookings:', e);
   }
-  // Initialize with seed data
   try {
     localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(INITIAL_CUSTOMER_BOOKINGS));
   } catch (e) {
-    console.error('Failed to write initial customer bookings:', e);
+    console.error('Failed to initialize customer bookings:', e);
   }
   return INITIAL_CUSTOMER_BOOKINGS;
 }
@@ -65,9 +81,12 @@ export function createCustomerBooking({
   durationMinutes,
   durationLabel,
   players,
+  totalPrice,
 }) {
   const newBookingId = `bk-${Date.now()}`;
-  
+  const computedCharge = calculateStationCharge(station.category || station.type, players, durationMinutes);
+  const computedTotal = totalPrice ?? calculateTotalAmount(computedCharge, calculatePlatformFee());
+
   const newBooking = {
     id: newBookingId,
     stationId: station.id,
@@ -82,7 +101,7 @@ export function createCustomerBooking({
     players,
     status: 'Confirmed',
     isUpcoming: true,
-    totalPrice: Math.round((station.pricePerHour * durationMinutes) / 60),
+    totalPrice: computedTotal,
     createdAt: new Date().toISOString(),
   };
 
@@ -94,7 +113,7 @@ export function createCustomerBooking({
   // 2. Add to station's booked slots to immediately block overlap for future bookings
   const allSlots = getStoredStationSlots();
   const stationSlots = allSlots[station.id.toLowerCase()] || [];
-  
+
   const newStationSlot = {
     id: `slot-${Date.now()}`,
     isoDate: dateFormatted.isoDate,
@@ -115,10 +134,13 @@ export function createCustomerBooking({
   return newBooking;
 }
 
-// Helper to reset mock data back to defaults if needed
-export function resetMockStore() {
+// Helper to clear all booking data cleanly
+export function clearAllBookings() {
   localStorage.removeItem(STORAGE_KEYS.SLOTS);
   localStorage.removeItem(STORAGE_KEYS.BOOKINGS);
   window.dispatchEvent(new Event('oliveal_booking_updated'));
 }
 
+export function resetMockStore() {
+  clearAllBookings();
+}

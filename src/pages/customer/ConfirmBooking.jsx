@@ -21,6 +21,7 @@ import {
   calculatePlatformFee,
   calculateTotalAmount,
 } from '../../utils/pricingUtils';
+import { formatDate } from '../../utils/bookingTimeUtils';
 
 /**
  * OLIVEAL GAMING ZONE — CONFIRM BOOKING PAGE
@@ -53,13 +54,15 @@ export default function ConfirmBooking() {
     return STATIONS[0]; // ALPHA by default
   }, [incoming.station, incoming.stationId]);
 
+  const defaultToday = useMemo(() => formatDate(new Date()), []);
+
   // Resolve Date
   const bookingDate = useMemo(() => {
     if (incoming.date?.fullLabel) return incoming.date.fullLabel;
     if (incoming.dateFormatted?.fullLabel) return incoming.dateFormatted.fullLabel;
     if (typeof incoming.date === 'string') return incoming.date;
-    return 'Tue, 10 Nov 2026';
-  }, [incoming.date, incoming.dateFormatted]);
+    return defaultToday.fullLabel;
+  }, [incoming.date, incoming.dateFormatted, defaultToday]);
 
   // Check if station is a simulator
   const isSimulator =
@@ -128,7 +131,7 @@ export default function ConfirmBooking() {
         station: selectedStation,
         dateFormatted: incoming.date || {
           fullLabel: bookingDate,
-          isoDate: '2026-11-10',
+          isoDate: defaultToday.isoDate,
         },
         startTimeFormatted: startFormatted,
         endTimeFormatted: endFormatted,
@@ -137,6 +140,7 @@ export default function ConfirmBooking() {
         durationMinutes,
         durationLabel: `${durationMinutes} Minutes`,
         players,
+        totalPrice: totalAmount,
       });
 
       setIsSubmitting(false);

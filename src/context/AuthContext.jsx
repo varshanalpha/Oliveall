@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
@@ -9,12 +9,20 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch or ensure profile in public.profiles
-  const fetchProfile = useCallback(async (userId, userMetadata = null, email = null) => {
-    if (!userId) {
-      setProfile(null);
-      return null;
-    }
+  // Prevents onAuthStateChange from prematurely exposing an unverified session during strict portal role check
+  const isVerifyingSignInRef = useRef(false);
+
+  // Pure helper: resolve profile from public.profiles (never fails with null when user is authenticated)
+  const resolveProfileData = useCallback(async (userId, userMetadata = null, email = null) => {
+    if (!userId) return null;
+
+    const fallbackProfile = {
+      id: userId,
+      email: email || '',
+      full_name: userMetadata?.full_name || userMetadata?.name || 'Gamer',
+      role: 'customer',
+      avatar_url: userMetadata?.avatar_url || userMetadata?.picture || null,
+    };
 
     try {
       const { data, error } = await supabase
@@ -28,20 +36,11 @@ export function AuthProvider({ children }) {
       }
 
       if (data) {
-        setProfile(data);
         return data;
       }
 
-      // Fallback: If trigger didn't run or table was populated manually, create customer profile
-      if (!data && (email || userMetadata)) {
-        const fallbackProfile = {
-          id: userId,
-          email: email || '',
-          full_name: userMetadata?.full_name || userMetadata?.name || 'Gamer',
-          role: 'customer',
-          avatar_url: userMetadata?.avatar_url || userMetadata?.picture || null,
-        };
-
+      // Attempt provisioning fallback if trigger didn't create a row yet
+      if (email || userMetadata) {
         const { data: inserted, error: insertErr } = await supabase
           .from('profiles')
           .upsert(fallbackProfile)
@@ -49,44 +48,58 @@ export function AuthProvider({ children }) {
           .maybeSingle();
 
         if (!insertErr && inserted) {
-          setProfile(inserted);
           return inserted;
         }
       }
 
-      return null;
+      return fallbackProfile;
     } catch (err) {
       console.error('Failed to resolve profile:', err);
-      return null;
+      return fallbackProfile;
     }
   }, []);
+
+  // Fetch and commit profile to state
+  const fetchProfile = useCallback(async (userId, userMetadata = null, email = null) => {
+    const resolved = await resolveProfileData(userId, userMetadata, email);
+    setProfile(resolved);
+    return resolved;
+  }, [resolveProfileData]);
 
   // Initialize session and listen for auth state changes
   useEffect(() => {
     let mounted = true;
+    let initialLoadDone = false;
 
     async function initializeAuth() {
       try {
+        // getSession() awaits Supabase URL detection / PKCE code exchange for Google OAuth callbacks
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         if (error) {
           console.error('Error getting initial session:', error);
         }
 
-        if (mounted) {
+        if (mounted && !isVerifyingSignInRef.current) {
           setSession(initialSession);
           setUser(initialSession?.user ?? null);
 
           if (initialSession?.user) {
-            await fetchProfile(
+            const prof = await resolveProfileData(
               initialSession.user.id,
               initialSession.user.user_metadata,
               initialSession.user.email
             );
+            if (mounted && !isVerifyingSignInRef.current) {
+              setProfile(prof);
+            }
+          } else {
+            setProfile(null);
           }
         }
       } catch (err) {
         console.error('Auth initialization error:', err);
       } finally {
+        initialLoadDone = true;
         if (mounted) {
           setLoading(false);
         }
@@ -98,28 +111,39 @@ export function AuthProvider({ children }) {
     // Subscribe to auth state changes (sign in, sign out, token refresh, OAuth callback)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       if (!mounted) return;
+      if (isVerifyingSignInRef.current) return;
+
+      // Let initializeAuth() handle INITIAL_SESSION so loading isn't cleared mid-OAuth exchange
+      if (event === 'INITIAL_SESSION' && !initialLoadDone) {
+        return;
+      }
 
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
 
       if (currentSession?.user) {
-        await fetchProfile(
+        const prof = await resolveProfileData(
           currentSession.user.id,
           currentSession.user.user_metadata,
           currentSession.user.email
         );
+        if (mounted && !isVerifyingSignInRef.current) {
+          setProfile(prof);
+        }
       } else {
         setProfile(null);
       }
 
-      setLoading(false);
+      if (mounted && initialLoadDone) {
+        setLoading(false);
+      }
     });
 
     return () => {
       mounted = false;
       subscription?.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [resolveProfileData]);
 
   // Customer Signup
   const signUp = async ({ email, password, fullName }) => {
@@ -153,6 +177,7 @@ export function AuthProvider({ children }) {
 
   // Sign In (Customer or Admin with strict portal enforcement)
   const signIn = async ({ email, password, expectedRole }) => {
+    isVerifyingSignInRef.current = true;
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -163,7 +188,7 @@ export function AuthProvider({ children }) {
 
       let userProfile = null;
       if (data.user) {
-        userProfile = await fetchProfile(
+        userProfile = await resolveProfileData(
           data.user.id,
           data.user.user_metadata,
           data.user.email
@@ -173,9 +198,9 @@ export function AuthProvider({ children }) {
       // STRICT ROLE ENFORCEMENT:
       // If expectedRole is specified, the user's role must match the active portal.
       // If an Admin logs into the Customer portal or a Customer logs into the Admin portal,
-      // immediately terminate the session and throw a generic invalid credentials error.
-      if (expectedRole && userProfile) {
-        const userRole = userProfile.role || 'customer';
+      // immediately terminate the session BEFORE committing user state and throw invalid credentials error.
+      if (expectedRole) {
+        const userRole = userProfile?.role || 'customer';
         if (userRole !== expectedRole) {
           await supabase.auth.signOut();
           setUser(null);
@@ -189,29 +214,41 @@ export function AuthProvider({ children }) {
         }
       }
 
+      // Portal check passed: commit authenticated session and profile to state
+      setSession(data.session ?? null);
+      setUser(data.user ?? null);
+      setProfile(userProfile);
+
       return { data, profile: userProfile, error: null };
     } catch (error) {
       return { data: null, profile: null, error };
+    } finally {
+      isVerifyingSignInRef.current = false;
     }
   };
 
-  // Google OAuth Login
+  // Google OAuth Login (Customer Portal)
   const signInWithGoogle = async () => {
     try {
+      sessionStorage.setItem('oliveal_oauth_pending', 'true');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/login`,
+          redirectTo: `${window.location.origin}/dashboard`,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent',
+            prompt: 'select_account',
           },
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        sessionStorage.removeItem('oliveal_oauth_pending');
+        throw error;
+      }
       return { data, error: null };
     } catch (error) {
+      sessionStorage.removeItem('oliveal_oauth_pending');
       return { data: null, error };
     }
   };

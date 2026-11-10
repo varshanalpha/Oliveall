@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import Login from '../pages/auth/Login';
 import Signup from '../pages/auth/Signup';
 import ForgotPassword from '../pages/auth/ForgotPassword';
@@ -64,7 +65,16 @@ function RootRedirect() {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
-    return null;
+    return (
+      <div className="min-h-screen w-full bg-[#07060e] flex flex-col items-center justify-center text-white">
+        <div className="w-14 h-14 rounded-full bg-purple-600/20 border border-purple-500/40 flex items-center justify-center shadow-[0_0_25px_rgba(168,85,247,0.45)] mb-4">
+          <Loader2 className="w-7 h-7 text-purple-400 animate-spin" />
+        </div>
+        <p className="text-sm font-medium text-slate-300 tracking-wide">
+          Authenticating Oliveal Session...
+        </p>
+      </div>
+    );
   }
 
   if (user) {

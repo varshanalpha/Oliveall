@@ -52,7 +52,7 @@ export default function BookingDetailsCard({
             <span>Date</span>
           </div>
           <span className="text-white font-semibold text-right">
-            {dateFormatted || 'Tue, 10 Nov 2026'}
+            {dateFormatted || '—'}
           </span>
         </div>
 
@@ -64,7 +64,7 @@ export default function BookingDetailsCard({
           </div>
           <div className="text-right">
             <span className="text-white font-semibold">
-              {timeRange || '06:30 PM – 08:00 PM'}
+              {timeRange || '—'}
             </span>
             {durationMinutes && (
               <span className="text-slate-400 text-xs font-normal ml-1.5">
