@@ -12,6 +12,7 @@ import MyBookings from '../pages/customer/MyBookings';
 import AdminShell from '../components/admin/AdminShell';
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import SpotBooking from '../pages/admin/SpotBooking';
+import SpotBookingDetails from '../pages/admin/SpotBookingDetails';
 import ProtectedRoute from './ProtectedRoute';
 import AdminRoute from './AdminRoute';
 import AuthLayout from '../components/auth/AuthLayout';
@@ -148,6 +149,7 @@ export default function AppRoutes() {
       >
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/spot-booking" element={<SpotBooking />} />
+        <Route path="/admin/spot-booking/details/:bookingRef" element={<SpotBookingDetails />} />
       </Route>
 
       {/* Catch-all redirect */}

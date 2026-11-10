@@ -6,10 +6,11 @@ import { clearAdminDashboardCache } from '../../hooks/useAdminDashboard';
 import AdminHeader from './AdminHeader';
 import BottomNavigation from './BottomNavigation';
 
-const ROUTE_ORDER = {
-  '/admin/dashboard': 0,
-  '/admin/spot-booking': 1,
-};
+function getRouteOrderIndex(pathname) {
+  if (pathname.startsWith('/admin/spot-booking/details')) return 2;
+  if (pathname.startsWith('/admin/spot-booking')) return 1;
+  return 0;
+}
 
 function getActiveTabId(pathname) {
   if (pathname.startsWith('/admin/spot-booking')) return 'spot-booking';
@@ -17,9 +18,9 @@ function getActiveTabId(pathname) {
 }
 
 /**
- * Shared persistent layout shell for Admin pages (/admin/dashboard, /admin/spot-booking).
- * Keeps AdminHeader & BottomNavigation stationary while smoothly animating tab content
- * left or right based on navigation direction.
+ * Shared persistent layout shell for Admin pages (/admin/dashboard, /admin/spot-booking,
+ * /admin/spot-booking/details/:bookingRef). Keeps AdminHeader & BottomNavigation stationary
+ * while smoothly animating tab content left or right based on navigation direction.
  */
 export default function AdminShell() {
   const location = useLocation();
@@ -30,12 +31,14 @@ export default function AdminShell() {
   const [refreshState, setRefreshState] = useState({ refreshing: false });
   const refreshHandlerRef = useRef(null);
 
-  const currentIdx = ROUTE_ORDER[location.pathname] ?? 0;
+  const isBookingDetailsRoute = location.pathname.startsWith('/admin/spot-booking/details');
+  const currentIdx = getRouteOrderIndex(location.pathname);
   const prevIdxRef = useRef(currentIdx);
   const [transitionClass, setTransitionClass] = useState('animate-fadeIn');
 
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
+    const rafId = requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'auto' }));
 
     const prevIdx = prevIdxRef.current;
     if (currentIdx > prevIdx) {
@@ -46,6 +49,7 @@ export default function AdminShell() {
       setTransitionClass('animate-fadeIn');
     }
     prevIdxRef.current = currentIdx;
+    return () => cancelAnimationFrame(rafId);
   }, [location.pathname, currentIdx]);
 
   useEffect(() => {
@@ -84,14 +88,16 @@ export default function AdminShell() {
         <div className="absolute top-[42%] left-1/2 -translate-x-1/2 w-[420px] h-[280px] rounded-full bg-[#D946EF]/[0.06] blur-[120px]" />
       </div>
 
-      <AdminHeader
-        adminProfile={profile}
-        notificationCount={0}
-        notifications={[]}
-        onSignOut={handleSignOut}
-        onRefresh={handleHeaderRefresh}
-        refreshing={refreshState.refreshing}
-      />
+      {!isBookingDetailsRoute && (
+        <AdminHeader
+          adminProfile={profile}
+          notificationCount={0}
+          notifications={[]}
+          onSignOut={handleSignOut}
+          onRefresh={handleHeaderRefresh}
+          refreshing={refreshState.refreshing}
+        />
+      )}
 
       {/* Animated Route Content Stage */}
       <div

@@ -206,7 +206,6 @@ export function useSpotBooking() {
         bookedSlots,
       });
 
-      // Reset customer input for next walk-in, keep station/date handy, reload live slots
       setCustomerName('');
       setCustomerNameTouched(false);
       setShowAllErrors(false);
@@ -243,6 +242,21 @@ export function useSpotBooking() {
     bookedSlots,
     refreshBookedSlots,
   ]);
+
+  const resetForm = useCallback(() => {
+    const todayIso = getKolkataTodayIso();
+    setCustomerName('');
+    setCustomerNameTouched(false);
+    setShowAllErrors(false);
+    setFeedback(null);
+    setSelectedDateIso(todayIso);
+    setStartTime(getDefaultStartTimeForDate(todayIso));
+    setDuration(60);
+    setPlayers(1);
+    if (stations.length > 0) {
+      setSelectedStationId(stations[0].id);
+    }
+  }, [stations]);
 
   return {
     // Catalog
@@ -283,6 +297,7 @@ export function useSpotBooking() {
     onDecrementPlayers: handleDecrementPlayers,
     onIncrementPlayers: handleIncrementPlayers,
     onSubmit: handleSubmit,
+    resetForm,
 
     // Submission feedback
     submitting,

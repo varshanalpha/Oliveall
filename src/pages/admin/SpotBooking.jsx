@@ -1,17 +1,19 @@
-import { useEffect, useRef } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   Zap,
   CalendarPlus,
   CheckCircle2,
   AlertCircle,
   Loader2,
+  History,
   X,
 } from 'lucide-react';
 import { useSpotBooking } from '../../hooks/useSpotBooking';
 import CustomerDetails from '../../components/admin/SpotBooking/CustomerDetails';
 import StationSelector from '../../components/admin/SpotBooking/StationSelector';
 import BookingDetails from '../../components/admin/SpotBooking/BookingDetails';
+import SpotBookingHistoryModal from '../../components/admin/SpotBooking/SpotBookingHistoryModal';
 
 /**
  * Oliveal Gaming Zone — Admin Spot Booking View (rendered inside persistent AdminShell).
@@ -19,9 +21,12 @@ import BookingDetails from '../../components/admin/SpotBooking/BookingDetails';
  * backed by atomic Supabase PostgreSQL overlap prevention & real-time customer sync.
  */
 export default function SpotBooking() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const outletContext = useOutletContext();
   const registerRefreshHandler = outletContext?.registerRefreshHandler;
   const feedbackRef = useRef(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const {
     stations,
@@ -51,10 +56,17 @@ export default function SpotBooking() {
     onDecrementPlayers,
     onIncrementPlayers,
     onSubmit,
+    resetForm,
     submitting,
     feedback,
     clearFeedback,
   } = useSpotBooking();
+
+  useEffect(() => {
+    if (location.state?.resetForm) {
+      resetForm();
+    }
+  }, [location.state?.resetForm, resetForm]);
 
   useEffect(() => {
     registerRefreshHandler?.(refreshBookedSlots, slotsLoading);
@@ -68,7 +80,13 @@ export default function SpotBooking() {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    await onSubmit();
+    const res = await onSubmit();
+    if (res?.ok && res?.booking) {
+      const refSlug = encodeURIComponent(res.booking.bookingNumber || res.booking.id);
+      navigate(`/admin/spot-booking/details/${refSlug}`, {
+        state: { booking: res.booking },
+      });
+    }
   };
 
   const showCustomerNameError =
@@ -78,17 +96,29 @@ export default function SpotBooking() {
 
   return (
     <main className="relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-4 sm:pt-5 pb-28 space-y-4">
-      {/* Page Heading */}
-      <header className="px-0.5">
-        <div className="flex items-center gap-2.5">
-          <Zap className="w-6 h-6 text-[#C4B5FD] shrink-0" aria-hidden="true" />
-          <h1 className="text-[1.6rem] sm:text-[1.75rem] font-extrabold text-white tracking-tight leading-tight">
-            Spot Booking
-          </h1>
+      {/* Page Heading with History Option */}
+      <header className="px-0.5 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <Zap className="w-6 h-6 text-[#C4B5FD] shrink-0" aria-hidden="true" />
+            <h1 className="text-[1.6rem] sm:text-[1.75rem] font-extrabold text-white tracking-tight leading-tight">
+              Spot Booking
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm text-[#A9A0BC] mt-1 font-medium leading-snug">
+            Create a new on-spot booking for walk-in customers
+          </p>
         </div>
-        <p className="text-xs sm:text-sm text-[#A9A0BC] mt-1 font-medium leading-snug">
-          Create a new on-spot booking for walk-in customers
-        </p>
+
+        <button
+          type="button"
+          onClick={() => setHistoryOpen(true)}
+          aria-label="View spot booking history"
+          className="shrink-0 mt-0.5 inline-flex items-center gap-1.5 rounded-xl bg-[#160F26]/95 hover:bg-[#21153B] border border-purple-500/35 hover:border-purple-400/60 px-3 py-2 text-xs font-semibold text-[#E2DCF0] hover:text-white shadow-[0_4px_16px_rgba(124,58,237,0.18)] transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+        >
+          <History className="w-3.5 h-3.5 text-[#C084FC]" aria-hidden="true" />
+          <span>History</span>
+        </button>
       </header>
 
       <form noValidate onSubmit={handleFormSubmit} className="space-y-4">
@@ -192,6 +222,18 @@ export default function SpotBooking() {
           </button>
         </div>
       </form>
+
+      <SpotBookingHistoryModal
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onSelectBooking={(booking) => {
+          setHistoryOpen(false);
+          const refSlug = encodeURIComponent(booking.bookingNumber || booking.id);
+          navigate(`/admin/spot-booking/details/${refSlug}`, {
+            state: { booking, fromHistory: true },
+          });
+        }}
+      />
     </main>
   );
 }

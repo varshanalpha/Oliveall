@@ -12,12 +12,52 @@ import {
   getKolkataDayBounds,
   formatBookingTimesKolkata,
 } from '../utils/bookingTimeUtils';
+import { deriveBookingLifecycleStatus } from '../utils/adminTimezoneUtils';
 import {
   validateSpotBookingInput,
   SPOT_CONFLICT_ERROR_MESSAGE,
 } from '../utils/bookingValidation';
 
 const SYNC_CHANNEL_NAME = 'oliveal-bookings-sync';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function mapSpotBookingRecord(row, fallbackStation = null) {
+  const st = row.stations || fallbackStation || {};
+  const isSimulator =
+    st.station_type === 'simulator' ||
+    st.type === 'simulator' ||
+    st.category === 'Racing Simulator' ||
+    Number(st.max_players) === 1;
+  const istTimes = formatBookingTimesKolkata(row.start_at, row.end_at);
+
+  return {
+    id: row.id,
+    bookingNumber: row.booking_number,
+    customerName:
+      row.customer_name?.trim() ||
+      row.profiles?.full_name?.trim() ||
+      'Walk-in Customer',
+    stationId: row.station_id,
+    stationName: st.name || 'Station',
+    stationType: st.station_type || st.type || (isSimulator ? 'simulator' : 'ps5'),
+    stationCategory: st.category || (isSimulator ? 'Racing Simulator' : 'PS5 Console'),
+    stationImage:
+      st.image_url ||
+      st.image ||
+      (isSimulator ? '/assets/images/racing-simulator.png' : '/assets/images/ps5-station.png'),
+    dateLabel: istTimes.dateLabel,
+    timeRange: istTimes.isCrossMidnight
+      ? `${istTimes.timeRange} (+1d)`
+      : istTimes.timeRange,
+    durationMinutes: row.duration_minutes,
+    playerCount: row.player_count,
+    status: row.status,
+    bookingSource: row.booking_source || 'spot',
+    startAt: row.start_at,
+    endAt: row.end_at,
+    createdAt: row.created_at,
+  };
+}
 
 function normalizeSpotRpcError(error) {
   const msg = String(error?.message || '');
@@ -219,21 +259,123 @@ export async function createAdminSpotBooking({
   window.dispatchEvent(new Event('oliveal_booking_updated'));
   await broadcastBookingSync(st.id);
 
+  return mapSpotBookingRecord(row, st);
+}
+
+/**
+ * Fetches an individual booking + its station info from Supabase by UUID id or booking_number.
+ * Enforces Admin verification first; supports page refresh & direct deep-link recovery.
+ */
+export async function fetchSpotBookingByRef(bookingRef) {
+  const authCheck = await verifyAdminSession();
+  if (!authCheck.authorized) {
+    const err = new Error(
+      authCheck.reason === 'unauthenticated'
+        ? 'Your session has expired. Please sign in again.'
+        : 'Administrative privileges required to view booking details.'
+    );
+    err.code = authCheck.reason;
+    throw err;
+  }
+
+  const ref = decodeURIComponent(String(bookingRef || '')).trim();
+  if (!ref) {
+    throw new Error('Missing booking reference.');
+  }
+
+  const filterCol = UUID_REGEX.test(ref) ? 'id' : 'booking_number';
+
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(
+      `
+      id,
+      booking_number,
+      user_id,
+      station_id,
+      customer_name,
+      booking_source,
+      start_at,
+      end_at,
+      duration_minutes,
+      player_count,
+      status,
+      created_at,
+      profiles!user_id ( id, full_name ),
+      stations ( id, slug, name, category, tag, station_type, image_url, max_players )
+    `
+    )
+    .eq(filterCol, ref)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || 'Failed to retrieve booking details from Supabase.');
+  }
+
+  if (!data) {
+    const notFound = new Error(`No booking found for reference "${ref}".`);
+    notFound.code = 'NOT_FOUND';
+    throw notFound;
+  }
+
+  return mapSpotBookingRecord(data);
+}
+
+/**
+ * Retrieves paginated Admin Spot Booking history (booking_source = 'spot') from Supabase.
+ * Ordered newest first with station info and live lifecycle status badge metadata.
+ */
+export async function fetchSpotBookingHistory({ limit = 50, offset = 0 } = {}) {
+  const authCheck = await verifyAdminSession();
+  if (!authCheck.authorized) {
+    throw new Error(
+      authCheck.reason === 'unauthenticated'
+        ? 'Your session has expired. Please sign in again.'
+        : 'Administrative privileges required to view spot booking history.'
+    );
+  }
+
+  const { data, error, count } = await supabase
+    .from('bookings')
+    .select(
+      `
+      id,
+      booking_number,
+      user_id,
+      station_id,
+      customer_name,
+      booking_source,
+      start_at,
+      end_at,
+      duration_minutes,
+      player_count,
+      status,
+      created_at,
+      profiles!user_id ( id, full_name ),
+      stations ( id, slug, name, category, tag, station_type, image_url, max_players )
+    `,
+      { count: 'exact' }
+    )
+    .eq('booking_source', 'spot')
+    .neq('status', 'expired')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    throw new Error(error.message || 'Failed to load spot booking history from Supabase.');
+  }
+
+  const nowMs = Date.now();
+  const bookings = (data || []).map((row) => ({
+    ...mapSpotBookingRecord(row),
+    lifecycleStatus: deriveBookingLifecycleStatus(row, nowMs),
+  }));
+
+  const totalCount = count ?? bookings.length;
   return {
-    id: row.id,
-    bookingNumber: row.booking_number,
-    customerName: row.customer_name || check.trimmedName,
-    stationId: row.station_id,
-    stationName: st.name || station.name,
-    dateLabel: istTimes.dateLabel,
-    timeRange: istTimes.isCrossMidnight
-      ? `${istTimes.timeRange} (+1d)`
-      : istTimes.timeRange,
-    durationMinutes: row.duration_minutes,
-    playerCount: row.player_count,
-    status: row.status,
-    bookingSource: row.booking_source || 'spot',
-    createdAt: row.created_at,
+    bookings,
+    totalCount,
+    hasMore: offset + bookings.length < totalCount,
   };
 }
 

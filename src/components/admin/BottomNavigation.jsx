@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { House, Zap, ScanLine, Gamepad2, Settings } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
  */
 export default function BottomNavigation({ activeTab = 'dashboard', onSelectUpcomingTab }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const activeIndex = Math.max(
     0,
     NAV_ITEMS.findIndex((item) => item.id === activeTab)
@@ -40,10 +41,11 @@ export default function BottomNavigation({ activeTab = 'dashboard', onSelectUpco
             const isActive = activeTab === id;
 
             const handleClick = () => {
-              if (isActive) return;
               if (route) {
-                navigate(route);
-              } else if (typeof onSelectUpcomingTab === 'function') {
+                if (location.pathname !== route) {
+                  navigate(route);
+                }
+              } else if (!isActive && typeof onSelectUpcomingTab === 'function') {
                 onSelectUpcomingTab(label);
               }
             };
