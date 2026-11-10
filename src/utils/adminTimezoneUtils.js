@@ -114,6 +114,22 @@ export function formatBookingTimeRangeIst(startAtIso, endAtIso) {
 }
 
 /**
+ * Formats a timestamptz ISO value into compact IST calendar date (e.g. "10 Nov 2026")
+ */
+export function formatBookingDateIst(isoString) {
+  if (!isoString) return '—';
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: BUSINESS_TIMEZONE,
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+/**
  * Derives accurate operational booking badge from BOTH database status and actual timestamps.
  * Never relies solely on a static stored status if the live time window has elapsed or begun.
  */

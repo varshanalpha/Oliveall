@@ -13,11 +13,66 @@ import { supabase } from '../lib/supabase';
 import {
   getBusinessDayBoundsUtc,
   formatBookingTimeRangeIst,
+  formatBookingDateIst,
   deriveBookingLifecycleStatus,
 } from '../utils/adminTimezoneUtils';
 
 const VALID_BOOKING_STATUSES = ['confirmed', 'completed'];
-const RECENT_VISIBLE_STATUSES = ['confirmed', 'completed', 'cancelled'];
+const RECENT_VISIBLE_STATUSES = ['confirmed', 'completed'];
+const RECENT_DASHBOARD_FETCH_LIMIT = 20;
+
+function mapBookingRecord(row, nowMs = Date.now()) {
+  return {
+    id: row.id,
+    bookingNumber: row.booking_number,
+    customerName: row.profiles?.full_name || 'Customer',
+    stationName: row.stations?.name || '—',
+    dateLabel: formatBookingDateIst(row.start_at),
+    timeRange: formatBookingTimeRangeIst(row.start_at, row.end_at),
+    durationMinutes: row.duration_minutes,
+    playerCount: row.player_count,
+    totalAmount: row.total_amount ?? null,
+    statusInfo: deriveBookingLifecycleStatus(row, nowMs),
+    startAt: row.start_at,
+    endAt: row.end_at,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * Counts distinct customers who have at least one valid (confirmed/completed) booking.
+ * Returns 0 immediately when bookings are deleted in Supabase.
+ */
+async function fetchUniqueBookedCustomersCount() {
+  const uniqueUserIds = new Set();
+  const pageSize = 1000;
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('user_id')
+      .in('status', VALID_BOOKING_STATUSES)
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+
+    const batch = data || [];
+    for (const row of batch) {
+      if (row.user_id) {
+        uniqueUserIds.add(row.user_id);
+      }
+    }
+
+    if (batch.length < pageSize) {
+      break;
+    }
+    offset += pageSize;
+  }
+
+  return uniqueUserIds.size;
+}
 
 function isMissingRelationError(err) {
   if (!err) return false;
@@ -89,7 +144,7 @@ export async function fetchAdminDashboardData() {
   // 2. Parallel Supabase queries using verified tables & FK joins
   const [
     todayBookingsRes,
-    customersCountRes,
+    totalUniqueCustomers,
     stationsRes,
     activeNowBookingsRes,
     recentBookingsRes,
@@ -102,11 +157,8 @@ export async function fetchAdminDashboardData() {
       .lt('start_at', endUtcIso)
       .in('status', VALID_BOOKING_STATUSES),
 
-    // Card 3: Total Registered Customers (excludes admins)
-    supabase
-      .from('profiles')
-      .select('id', { count: 'exact', head: true })
-      .eq('role', 'customer'),
+    // Card 3: Unique customers derived directly from valid bookings in Supabase
+    fetchUniqueBookedCustomersCount(),
 
     // Card 4a: Stations catalog
     supabase
@@ -122,10 +174,11 @@ export async function fetchAdminDashboardData() {
       .gt('end_at', nowIso)
       .in('status', ['confirmed']),
 
-    // Recent Bookings (latest 3 created, excluding expired/failed/pending holds)
+    // Recent Bookings (up to 20 latest so dashboard dynamically fills height down to bottom nav)
     supabase
       .from('bookings')
-      .select(`
+      .select(
+        `
         id,
         booking_number,
         user_id,
@@ -134,21 +187,23 @@ export async function fetchAdminDashboardData() {
         end_at,
         duration_minutes,
         player_count,
+        total_amount,
         status,
         created_at,
         profiles ( id, full_name ),
         stations ( id, name )
-      `)
+      `,
+        { count: 'exact' }
+      )
       .in('status', RECENT_VISIBLE_STATUSES)
       .order('created_at', { ascending: false })
-      .limit(3),
+      .limit(RECENT_DASHBOARD_FETCH_LIMIT),
   ]);
 
   const revenueRes = getRevenueSchemaUnavailableState();
 
   // Surface genuine RLS / query failures loudly without substituting fake data
   if (todayBookingsRes.error) throw todayBookingsRes.error;
-  if (customersCountRes.error) throw customersCountRes.error;
   if (recentBookingsRes.error) throw recentBookingsRes.error;
 
   // Compute Active Stations KPI gracefully
@@ -194,15 +249,8 @@ export async function fetchAdminDashboardData() {
 
   // Transform Recent Bookings rows for UI
   const nowMs = now.getTime();
-  const recentBookings = (recentBookingsRes.data || []).map((row) => ({
-    id: row.id,
-    bookingNumber: row.booking_number,
-    customerName: row.profiles?.full_name || 'Customer',
-    stationName: row.stations?.name || '—',
-    timeRange: formatBookingTimeRangeIst(row.start_at, row.end_at),
-    statusInfo: deriveBookingLifecycleStatus(row, nowMs),
-    createdAt: row.created_at,
-  }));
+  const recentBookings = (recentBookingsRes.data || []).map((row) => mapBookingRecord(row, nowMs));
+  const totalBookingsCount = recentBookingsRes.count ?? recentBookings.length;
 
   return {
     unauthorized: false,
@@ -210,14 +258,61 @@ export async function fetchAdminDashboardData() {
     kpis: {
       todayBookings: todayBookingsRes.count ?? 0,
       todayRevenue: revenueRes,
-      totalCustomers: customersCountRes.count ?? 0,
+      totalCustomers: totalUniqueCustomers ?? 0,
       activeStations: stationsMetric,
     },
     recentBookings,
+    totalBookingsCount,
     notifications: {
       count: 0, // No notifications table in current schema; never show fake badge count
       items: [],
     },
     fetchedAt: nowIso,
+  };
+}
+
+/**
+ * Fetches paginated bookings across all dates for the Admin "View All Bookings" view
+ */
+export async function fetchAllAdminBookings({ limit = 50, offset = 0 } = {}) {
+  const authCheck = await verifyAdminSession();
+  if (!authCheck.authorized) {
+    throw new Error('Administrative privileges required to view all bookings.');
+  }
+
+  const { data, error, count } = await supabase
+    .from('bookings')
+    .select(
+      `
+      id,
+      booking_number,
+      user_id,
+      station_id,
+      start_at,
+      end_at,
+      duration_minutes,
+      player_count,
+      total_amount,
+      status,
+      created_at,
+      profiles ( id, full_name ),
+      stations ( id, name )
+    `,
+      { count: 'exact' }
+    )
+    .in('status', RECENT_VISIBLE_STATUSES)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) throw error;
+
+  const nowMs = Date.now();
+  const bookings = (data || []).map((row) => mapBookingRecord(row, nowMs));
+  const totalCount = count ?? bookings.length;
+
+  return {
+    bookings,
+    totalCount,
+    hasMore: offset + bookings.length < totalCount,
   };
 }

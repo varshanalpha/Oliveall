@@ -7,6 +7,7 @@ import AdminHeader from '../../components/admin/AdminHeader';
 import DashboardHeading from '../../components/admin/DashboardHeading';
 import KpiGrid from '../../components/admin/KpiGrid';
 import RecentBookings from '../../components/admin/RecentBookings';
+import AllBookingsModal from '../../components/admin/AllBookingsModal';
 import BottomNavigation from '../../components/admin/BottomNavigation';
 
 /**
@@ -18,6 +19,7 @@ export default function AdminDashboard() {
   const { profile, signOut } = useAuth();
   const { data, loading, refreshing, error, refresh } = useAdminDashboard();
   const [notice, setNotice] = useState(null);
+  const [allBookingsOpen, setAllBookingsOpen] = useState(false);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -36,7 +38,7 @@ export default function AdminDashboard() {
   }, [signOut, navigate]);
 
   const handleViewAllBookings = useCallback(() => {
-    setNotice('Full booking management views will be added in the upcoming admin steps.');
+    setAllBookingsOpen(true);
   }, []);
 
   const handleSelectUpcomingTab = useCallback((tabLabel) => {
@@ -46,7 +48,7 @@ export default function AdminDashboard() {
   const activeAdminProfile = data?.adminProfile || profile;
 
   return (
-    <div className="min-h-screen w-full bg-[#080510] text-white relative overflow-x-hidden flex flex-col">
+    <div className="min-h-[100dvh] w-full bg-[#080510] text-white relative overflow-x-hidden flex flex-col">
       {/* Subtle controlled ambient radial purple lighting */}
       <div
         aria-hidden="true"
@@ -65,7 +67,7 @@ export default function AdminDashboard() {
         refreshing={refreshing}
       />
 
-      <main className="relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-4 sm:pt-5 pb-28 space-y-5">
+      <main className="relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-4 sm:pt-5 pb-[88px] flex flex-col gap-4 sm:gap-5">
         <DashboardHeading
           title="Admin Dashboard"
           subtitle="Manage spot bookings, check-ins and stations"
@@ -94,12 +96,20 @@ export default function AdminDashboard() {
 
         <RecentBookings
           bookings={data?.recentBookings ?? []}
+          totalBookingsCount={data?.totalBookingsCount ?? null}
           loading={loading}
           error={error && !data ? error : null}
           onRetry={refresh}
           onViewAll={handleViewAllBookings}
         />
       </main>
+
+      <AllBookingsModal
+        isOpen={allBookingsOpen}
+        onClose={() => setAllBookingsOpen(false)}
+        initialBookings={data?.recentBookings ?? []}
+        totalCount={data?.totalBookingsCount ?? 0}
+      />
 
       {/* Non-blocking status notice for out-of-scope navigation tabs / View All */}
       {notice && (
