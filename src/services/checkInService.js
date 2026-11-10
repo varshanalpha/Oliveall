@@ -109,7 +109,7 @@ export function parseScannedQrPayload(rawText) {
   throw new Error('Unrecognized QR pass format. Please scan an Oliveal Gaming Zone QR code.');
 }
 
-function mapCheckInBookingRow(row) {
+function mapCheckInBookingRow(row, nowMs = Date.now()) {
   const st = row.stations || {};
   const isSimulator =
     st.station_type === 'simulator' ||
@@ -117,7 +117,6 @@ function mapCheckInBookingRow(row) {
     Number(st.max_players) === 1;
 
   const istTimes = formatBookingTimesKolkata(row.start_at, row.end_at);
-  const nowMs = Date.now();
   const lifecycleStatus = deriveBookingLifecycleStatus(row, nowMs);
 
   return {

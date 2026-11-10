@@ -240,10 +240,10 @@ export default function QrCameraScanner({ active = true, onScanSuccess, busy = f
   return (
     <section
       aria-label="QR Code Camera Scanner"
-      className="rounded-2xl bg-[#120B20]/95 border border-purple-500/30 p-3.5 sm:p-4 shadow-[0_8px_28px_rgba(0,0,0,0.45),0_0_22px_rgba(124,58,237,0.12)] backdrop-blur-md space-y-3"
+      className="flex-1 min-h-[250px] flex flex-col rounded-2xl bg-[#120B20]/95 border border-purple-500/30 p-3.5 sm:p-4 shadow-[0_8px_28px_rgba(0,0,0,0.45),0_0_22px_rgba(124,58,237,0.12)] backdrop-blur-md space-y-3"
     >
       {/* Top Toolbar */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span
             className={`w-2 h-2 rounded-full shrink-0 ${
@@ -290,13 +290,13 @@ export default function QrCameraScanner({ active = true, onScanSuccess, busy = f
         </div>
       </div>
 
-      {/* Camera Viewfinder Box */}
-      <div className="relative w-full aspect-[4/3] sm:aspect-video rounded-xl overflow-hidden bg-[#090512] border border-purple-500/25 flex items-center justify-center">
+      {/* Camera Viewfinder Box (stretches cleanly to consume remaining vertical space) */}
+      <div className="relative w-full flex-1 min-h-[155px] rounded-xl overflow-hidden bg-[#090512] border border-purple-500/25 flex items-center justify-center">
         <video
           ref={videoRef}
           muted
           playsInline
-          className={`w-full h-full object-cover ${cameraStatus === 'active' ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute inset-0 w-full h-full object-cover ${cameraStatus === 'active' ? 'opacity-100' : 'opacity-0'}`}
         />
 
         {/* Scanning Corner Frame Overlay */}
@@ -322,7 +322,7 @@ export default function QrCameraScanner({ active = true, onScanSuccess, busy = f
         {cameraStatus === 'paused' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center p-4">
             <CameraOff className="w-8 h-8 text-[#A9A0BC]" aria-hidden="true" />
-            <p className="text-xs text-[#A9A0BC]">Camera paused</p>
+            <p className="text-xs sm:text-sm text-[#A9A0BC]">Camera paused</p>
             <button
               type="button"
               onClick={startScanner}
@@ -336,7 +336,7 @@ export default function QrCameraScanner({ active = true, onScanSuccess, busy = f
 
         {cameraStatus === 'error' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center p-5">
-            <CameraOff className="w-8 h-8 text-rose-400" aria-hidden="true" />
+            <CameraOff className="w-8 h-8 text-rose-400 shrink-0" aria-hidden="true" />
             <p className="text-xs text-rose-200 max-w-xs leading-relaxed">{cameraError}</p>
             <button
               type="button"
@@ -351,7 +351,7 @@ export default function QrCameraScanner({ active = true, onScanSuccess, busy = f
       </div>
 
       {/* Bottom Scanner Quick Controls (Pause/Resume + Upload QR Image) */}
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5 shrink-0">
         <button
           type="button"
           onClick={() => {

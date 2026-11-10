@@ -7,8 +7,8 @@ import CheckInBookingDetails from '../../components/admin/CheckIn/CheckInBooking
 
 /**
  * Oliveal Gaming Zone — Admin QR Check-In Page (rendered inside persistent AdminShell).
- * Allows admins to scan customer Check-In QR passes via live camera (or QR image/pass code)
- * and immediately displays verified Supabase booking details + desk check-in action.
+ * Uses all available screen space down to the bottom navigation bar across the live
+ * QR Camera Scanner and Manual Booking / Pass ID entry options.
  */
 export default function CheckIn() {
   const navigate = useNavigate();
@@ -98,9 +98,13 @@ export default function CheckIn() {
   const scannerActive = !scannedBooking && !lookingUp;
 
   return (
-    <main className="relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-4 sm:pt-5 pb-28 space-y-4">
+    <main
+      className={`relative z-10 flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pt-4 sm:pt-5 flex flex-col ${
+        scannedBooking ? 'pb-28 space-y-4' : 'pb-[84px] gap-3.5 sm:gap-4'
+      }`}
+    >
       {/* Page Heading */}
-      <header className="px-0.5 flex items-start justify-between gap-3">
+      <header className="px-0.5 flex items-start justify-between gap-3 shrink-0">
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
             <ScanLine className="w-6 h-6 text-[#C4B5FD] shrink-0" aria-hidden="true" />
@@ -127,9 +131,9 @@ export default function CheckIn() {
         )}
       </header>
 
-      {/* Camera Scanner + Manual Pass ID Backup */}
+      {/* Camera Scanner + Manual Pass ID Backup (fills full available viewport down to nav) */}
       {!scannedBooking && (
-        <>
+        <div className="flex-1 min-h-0 flex flex-col gap-3.5 sm:gap-4">
           <QrCameraScanner
             active={scannerActive}
             onScanSuccess={handleLookup}
@@ -140,7 +144,7 @@ export default function CheckIn() {
           {lookingUp && (
             <div
               role="status"
-              className="rounded-2xl bg-[#120B20]/95 border border-purple-500/30 p-4 flex items-center justify-center gap-2.5 text-xs sm:text-sm font-semibold text-[#D6CFE6]"
+              className="shrink-0 rounded-2xl bg-[#120B20]/95 border border-purple-500/30 p-4 flex items-center justify-center gap-2.5 text-xs sm:text-sm font-semibold text-[#D6CFE6]"
             >
               <Loader2 className="w-4 h-4 text-purple-400 animate-spin" aria-hidden="true" />
               <span>Verifying booking pass in Supabase...</span>
@@ -151,7 +155,7 @@ export default function CheckIn() {
           {lookupError && (
             <div
               role="alert"
-              className="rounded-2xl bg-rose-500/15 border border-rose-500/40 p-3.5 flex items-start justify-between gap-3"
+              className="shrink-0 rounded-2xl bg-rose-500/15 border border-rose-500/40 p-3.5 flex items-start justify-between gap-3"
             >
               <div className="flex items-start gap-2.5 min-w-0">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" aria-hidden="true" />
@@ -170,11 +174,11 @@ export default function CheckIn() {
           {/* Manual Booking Code Fallback Card */}
           <form
             onSubmit={handleManualSubmit}
-            className="rounded-2xl bg-[#120B20]/95 border border-purple-500/25 p-4 space-y-2.5"
+            className="shrink-0 rounded-2xl bg-[#120B20]/95 border border-purple-500/25 p-4 space-y-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
           >
             <label
               htmlFor="checkin-manual-pass-id"
-              className="block text-xs font-semibold text-[#D6CFE6]"
+              className="block text-xs sm:text-sm font-semibold text-[#D6CFE6]"
             >
               Or enter Booking / Pass ID manually
             </label>
@@ -200,7 +204,7 @@ export default function CheckIn() {
               </button>
             </div>
           </form>
-        </>
+        </div>
       )}
 
       {/* Scanned Booking Details View */}
