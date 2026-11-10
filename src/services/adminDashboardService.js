@@ -167,7 +167,7 @@ async function queryAdminBookingsRange({ offset = 0, limit = 20, withCount = tru
       status,
       ${includeSpotCols ? 'customer_name, booking_source,' : ''}
       created_at,
-      profiles ( id, full_name ),
+      profiles!user_id ( id, full_name ),
       stations ( id, name )
     `;
     return supabase
