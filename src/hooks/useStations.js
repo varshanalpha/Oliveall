@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchActiveStations, getCachedStations } from '../services/stationService';
+import {
+  fetchActiveStations,
+  getCachedStations,
+  subscribeToStationSync,
+} from '../services/stationService';
 
 /**
  * Retrieves active gaming stations from Supabase public.stations cleanly.
@@ -43,6 +47,12 @@ export function useStations() {
 
   useEffect(() => {
     loadStations({ forceRefresh: true });
+  }, [loadStations]);
+
+  useEffect(() => {
+    return subscribeToStationSync(() => {
+      loadStations({ forceRefresh: true });
+    });
   }, [loadStations]);
 
   return {

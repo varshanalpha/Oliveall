@@ -3,7 +3,11 @@ import CustomerHeader from '../../components/customer/CustomerHeader';
 import HeroSection from '../../components/customer/HeroSection';
 import NavigationCard from '../../components/customer/NavigationCard';
 import StationCard from '../../components/customer/StationCard';
-import { fetchActiveStations, getCachedStations } from '../../services/stationService';
+import {
+  fetchAllStationsCatalog,
+  getCachedStations,
+  subscribeToStationSync,
+} from '../../services/stationService';
 
 export default function CustomerHome() {
   const [stations, setStations] = useState(() => getCachedStations() || []);
@@ -11,8 +15,8 @@ export default function CustomerHome() {
 
   useEffect(() => {
     let mounted = true;
-    async function loadStations() {
-      const { stations: list } = await fetchActiveStations();
+    async function loadStations(forceRefresh = false) {
+      const { stations: list } = await fetchAllStationsCatalog({ forceRefresh });
       if (!mounted) return;
       setStations((prev) => {
         if (prev.length === list.length && JSON.stringify(prev) === JSON.stringify(list)) {
@@ -22,9 +26,11 @@ export default function CustomerHome() {
       });
       setLoadingStations(false);
     }
-    loadStations();
+    loadStations(true);
+    const unsub = subscribeToStationSync(() => loadStations(true));
     return () => {
       mounted = false;
+      unsub();
     };
   }, []);
 

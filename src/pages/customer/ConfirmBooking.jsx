@@ -15,7 +15,11 @@ import ConfirmBookingButton from '../../components/customer/ConfirmBookingButton
 import BookingSuccessModal from '../../components/customer/BookingSuccessModal';
 import StatusMessage from '../../components/ui/StatusMessage';
 import { STATIONS, getStationById } from '../../services/mock/stationMockData';
-import { fetchActiveStations, resolveStationFromList } from '../../services/stationService';
+import {
+  fetchAllStationsCatalog,
+  resolveStationFromList,
+  subscribeToStationSync,
+} from '../../services/stationService';
 import { createSupabaseBooking } from '../../services/bookingService';
 import {
   calculateStationCharge,
@@ -43,22 +47,26 @@ export default function ConfirmBooking() {
   });
 
   useEffect(() => {
-    if (selectedStation?.isLiveDb) return;
     let mounted = true;
     async function hydrateLiveStation() {
-      const { stations } = await fetchActiveStations();
+      const { stations } = await fetchAllStationsCatalog({ forceRefresh: true });
       if (!mounted || !stations?.length) return;
-      const resolved = resolveStationFromList(
-        stations,
-        incoming.station?.slug || incoming.station?.id || incoming.stationId || selectedStation?.id
-      );
+      const targetRef =
+        incoming.station?.slug || incoming.station?.id || incoming.stationId || selectedStation?.slug || selectedStation?.id;
+      const resolved = stations.find(
+        (s) =>
+          String(s.id).toLowerCase() === String(targetRef || '').toLowerCase() ||
+          String(s.slug || '').toLowerCase() === String(targetRef || '').toLowerCase()
+      ) || resolveStationFromList(stations, targetRef);
       if (resolved) setSelectedStation(resolved);
     }
     hydrateLiveStation();
+    const unsub = subscribeToStationSync(hydrateLiveStation);
     return () => {
       mounted = false;
+      unsub();
     };
-  }, [incoming.station, incoming.stationId, selectedStation?.id, selectedStation?.isLiveDb]);
+  }, [incoming.station, incoming.stationId, selectedStation?.id, selectedStation?.slug]);
 
   const defaultToday = useMemo(() => formatDate(new Date()), []);
 
@@ -129,6 +137,7 @@ export default function ConfirmBooking() {
     () => isSlotStartInPast(bookingIsoDate, startTime, nowMs),
     [bookingIsoDate, startTime, nowMs]
   );
+  const isStationDisabled = selectedStation?.isActive === false;
 
   // Navigate back to BookSlot preserving selections
   const handleEdit = () => {
@@ -146,6 +155,13 @@ export default function ConfirmBooking() {
 
   // Submit and persist booking to Supabase via atomic RPC
   const handleConfirmAndPay = async () => {
+    if (isStationDisabled) {
+      setSubmitError(
+        `${selectedStation?.name || 'This station'} is currently disabled (Temporarily Unavailable). Please go back and select an active station.`
+      );
+      return;
+    }
+
     const freshNowMs = Date.now();
     if (isSlotStartInPast(bookingIsoDate, startTime, freshNowMs)) {
       setNowMs(freshNowMs);
@@ -272,22 +288,24 @@ export default function ConfirmBooking() {
           onOpenTerms={() => setShowTermsModal(true)}
         />
 
-        {/* Server Validation / Conflict / Expired-Time Alert */}
-        {(isPastSlot || submitError) && (
+        {/* Server Validation / Conflict / Expired / Disabled Station Alert */}
+        {(isStationDisabled || isPastSlot || submitError) && (
           <StatusMessage
             type="error"
             message={
-              submitError ||
-              'Selected start time has already passed. Please tap Edit above to choose an upcoming time slot.'
+              isStationDisabled
+                ? `${selectedStation?.name || 'This station'} is currently disabled (Temporarily Unavailable). Please go back and choose another station.`
+                : submitError ||
+                  'Selected start time has already passed. Please tap Edit above to choose an upcoming time slot.'
             }
-            onClose={submitError ? () => setSubmitError(null) : undefined}
+            onClose={submitError && !isStationDisabled ? () => setSubmitError(null) : undefined}
           />
         )}
 
         {/* 6. Full-Width Confirm Booking & Pay CTA Button */}
         <div className="mt-1">
           <ConfirmBookingButton
-            disabled={!agreedToTerms || isPastSlot}
+            disabled={!agreedToTerms || isPastSlot || isStationDisabled}
             loading={isSubmitting}
             onClick={handleConfirmAndPay}
           />

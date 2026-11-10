@@ -9,7 +9,12 @@ import BookedSlots from '../../components/customer/BookedSlots';
 import SlotCreator from '../../components/customer/SlotCreator';
 import PrimaryButton from '../../components/auth/PrimaryButton';
 import { getStationById, STATIONS as DEFAULT_STATIONS } from '../../services/mock/stationMockData';
-import { fetchActiveStations, getCachedStations, resolveStationFromList } from '../../services/stationService';
+import {
+  fetchAllStationsCatalog,
+  getCachedStations,
+  resolveStationFromList,
+  subscribeToStationSync,
+} from '../../services/stationService';
 import { fetchBookedSlotsForStation, getCachedBookedSlots, invalidateBookingCaches } from '../../services/bookingService';
 import { subscribeToBookingSync } from '../../services/spotBookingService';
 import { getEligibleBookingDates } from '../../utils/dateEligibility';
@@ -36,20 +41,26 @@ export default function BookSlot() {
 
   useEffect(() => {
     let mounted = true;
-    async function loadStations() {
-      const { stations: liveList } = await fetchActiveStations();
+    async function loadStations(forceRefresh = false) {
+      const { stations: liveList } = await fetchAllStationsCatalog({ forceRefresh });
       if (!mounted || !liveList || liveList.length === 0) return;
       setStations((prev) =>
         JSON.stringify(prev) === JSON.stringify(liveList) ? prev : liveList
       );
       setSelectedStation((prev) => {
         const next = resolveStationFromList(liveList, stationParam || prev?.slug || prev?.id);
-        return prev?.id === next?.id && prev?.isLiveDb === next?.isLiveDb ? prev : next;
+        return prev?.id === next?.id &&
+          prev?.isLiveDb === next?.isLiveDb &&
+          prev?.isActive === next?.isActive
+          ? prev
+          : next;
       });
     }
-    loadStations();
+    loadStations(true);
+    const unsubStations = subscribeToStationSync(() => loadStations(true));
     return () => {
       mounted = false;
+      unsubStations();
     };
   }, [stationParam]);
 
@@ -161,8 +172,11 @@ export default function BookSlot() {
     );
   }, [calculatedSlot, bookedSlots, selectedDate?.isoDate, nowMs]);
 
+  const isStationDisabled = selectedStation?.isActive === false;
+
   // Handle Confirm Booking Submission — Route to Confirm Booking Page
   const handleConfirmBooking = () => {
+    if (isStationDisabled) return;
     const freshNowMs = Date.now();
     if (isSlotStartInPast(selectedDate?.isoDate, startTime, freshNowMs)) {
       setNowMs(freshNowMs);
@@ -229,6 +243,16 @@ export default function BookSlot() {
           onSelectStation={(station) => setSelectedStation(station)}
         />
 
+        {isStationDisabled && (
+          <div
+            role="alert"
+            className="rounded-2xl bg-rose-500/15 border border-rose-500/40 px-4 py-3 text-xs sm:text-sm text-rose-200 font-medium leading-snug"
+          >
+            <strong className="text-white">{selectedStation?.name}</strong> is Temporarily
+            Unavailable. Please select another active station above to continue booking.
+          </div>
+        )}
+
         {/* 2. Select Date (Today vs Tomorrow with 8 PM advance rule) */}
         <DateSelector
           eligibleDates={eligibleDates}
@@ -276,9 +300,9 @@ export default function BookSlot() {
           <PrimaryButton
             type="button"
             onClick={handleConfirmBooking}
-            disabled={!validation.isValid}
+            disabled={!validation.isValid || isStationDisabled}
           >
-            Confirm Booking
+            {isStationDisabled ? 'Station Temporarily Unavailable' : 'Confirm Booking'}
           </PrimaryButton>
         </div>
 

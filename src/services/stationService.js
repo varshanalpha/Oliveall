@@ -52,31 +52,105 @@ function getDefaultStationsMapped() {
   }));
 }
 
+const SYNC_CHANNEL_NAME = 'oliveal-bookings-sync';
+
+export function invalidateStationsCache() {
+  memoryStationsCache = null;
+  memoryCacheTimestamp = 0;
+  memoryIsFallback = false;
+  try {
+    sessionStorage.removeItem(CACHE_KEY);
+  } catch {
+    // ignore storage access issues
+  }
+}
+
+export async function broadcastStationSync(stationId = null) {
+  invalidateStationsCache();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('oliveal_stations_updated', { detail: { stationId } }));
+    window.dispatchEvent(new Event('oliveal_booking_updated'));
+  }
+  try {
+    const ch = supabase.channel(SYNC_CHANNEL_NAME);
+    await ch.send({
+      type: 'broadcast',
+      event: 'station_changed',
+      payload: { stationId, updatedAt: Date.now() },
+    });
+  } catch {
+    // Realtime broadcast is best-effort
+  }
+}
+
+export function subscribeToStationSync(onStationChange) {
+  const handleLocal = () => {
+    invalidateStationsCache();
+    onStationChange?.();
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('oliveal_stations_updated', handleLocal);
+  }
+
+  let channel = null;
+  try {
+    channel = supabase
+      .channel(`stations-sync-${Math.random().toString(36).slice(2, 8)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'stations' },
+        () => {
+          invalidateStationsCache();
+          onStationChange?.();
+        }
+      )
+      .on('broadcast', { event: 'station_changed' }, () => {
+        invalidateStationsCache();
+        onStationChange?.();
+      })
+      .subscribe();
+  } catch {
+    // ignore realtime subscribe errors
+  }
+
+  return () => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('oliveal_stations_updated', handleLocal);
+    }
+    if (channel) {
+      supabase.removeChannel(channel);
+    }
+  };
+}
+
 /**
  * Synchronously retrieves cached stations (memory first, then sessionStorage)
  * so components render immediately on mount with zero skeleton flash.
  */
-export function getCachedStations() {
+export function getCachedStations({ activeOnly = false } = {}) {
+  let list = null;
   if (memoryStationsCache && memoryStationsCache.length > 0) {
-    return memoryStationsCache;
-  }
-
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed?.stations) && parsed.stations.length > 0) {
-        memoryStationsCache = parsed.stations;
-        memoryCacheTimestamp = parsed.timestamp || 0;
-        memoryIsFallback = false;
-        return memoryStationsCache;
+    list = memoryStationsCache;
+  } else {
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed?.stations) && parsed.stations.length > 0) {
+          memoryStationsCache = parsed.stations;
+          memoryCacheTimestamp = parsed.timestamp || 0;
+          memoryIsFallback = false;
+          list = memoryStationsCache;
+        }
       }
+    } catch {
+      // ignore storage access issues
     }
-  } catch (e) {
-    // ignore storage access issues
   }
 
-  return null;
+  if (!list) return null;
+  return activeOnly ? list.filter((s) => s.isActive !== false) : list;
 }
 
 function saveStationsToCache(stations, isFallback = false) {
@@ -90,17 +164,17 @@ function saveStationsToCache(stations, isFallback = false) {
         CACHE_KEY,
         JSON.stringify({ stations, timestamp: memoryCacheTimestamp })
       );
-    } catch (e) {
+    } catch {
       // ignore storage errors
     }
   }
 }
 
 /**
- * Loads all active stations ordered by display_order from Supabase.
- * Deduplicates concurrent calls and serves fresh cache hits instantaneously.
+ * Loads ALL stations (active + disabled) ordered by display_order from Supabase.
+ * Used by both Admin Stations Management and Customer UI (to display disabled status clearly).
  */
-export async function fetchActiveStations({ forceRefresh = false } = {}) {
+export async function fetchAllStationsCatalog({ forceRefresh = false } = {}) {
   const cached = getCachedStations();
   const isCacheFresh =
     cached &&
@@ -124,7 +198,6 @@ export async function fetchActiveStations({ forceRefresh = false } = {}) {
       const { data, error } = await supabase
         .from('stations')
         .select('*')
-        .eq('is_active', true)
         .order('display_order', { ascending: true });
 
       if (error) {
@@ -151,6 +224,7 @@ export async function fetchActiveStations({ forceRefresh = false } = {}) {
       }
 
       if (!data || data.length === 0) {
+        saveStationsToCache([], false);
         return {
           stations: [],
           isFallback: false,
@@ -184,18 +258,31 @@ export async function fetchActiveStations({ forceRefresh = false } = {}) {
 }
 
 /**
- * Matches a station from a list by either UUID id or URL slug (e.g. 'alpha', 'rs-2')
+ * Loads strictly active stations (is_active = true) ordered by display_order.
+ */
+export async function fetchActiveStations({ forceRefresh = false } = {}) {
+  const result = await fetchAllStationsCatalog({ forceRefresh });
+  return {
+    ...result,
+    stations: (result.stations || []).filter((s) => s.isActive !== false),
+  };
+}
+
+/**
+ * Matches a station from a list by either UUID id, URL slug, or name.
+ * Defaults to the first ACTIVE station when no explicit param matches.
  */
 export function resolveStationFromList(stations, param) {
   if (!stations || stations.length === 0) return null;
-  if (!param) return stations[0];
-  const lower = String(param).toLowerCase();
-  return (
-    stations.find(
+  if (param) {
+    const lower = String(param).toLowerCase();
+    const match = stations.find(
       (s) =>
         String(s.id).toLowerCase() === lower ||
         String(s.slug || '').toLowerCase() === lower ||
         String(s.name || '').toLowerCase() === lower
-    ) || stations[0]
-  );
+    );
+    if (match) return match;
+  }
+  return stations.find((s) => s.isActive !== false) || stations[0];
 }

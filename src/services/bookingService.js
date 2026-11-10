@@ -208,6 +208,12 @@ export async function createSupabaseBooking({
       );
     }
 
+    if (station.isActive === false) {
+      throw new Error(
+        `${station.name || 'This station'} is currently disabled (Temporarily Unavailable). Please select an active station.`
+      );
+    }
+
     const startAt = buildKolkataTimestamp(isoDate, startTime);
 
     if (!isoDate || !startTime || Number.isNaN(Date.parse(startAt)) || isSlotStartInPast(isoDate, startTime, Date.now())) {
@@ -222,7 +228,15 @@ export async function createSupabaseBooking({
       p_terms_accepted: Boolean(termsAccepted),
     });
 
-    if (error) throw error;
+    if (error) {
+      const msg = String(error.message || '');
+      if (msg.includes('currently inactive') || msg.includes('temporarily unavailable')) {
+        throw new Error(
+          `${station.name || 'Selected station'} is currently disabled and temporarily unavailable.`
+        );
+      }
+      throw error;
+    }
 
     const bookingRow = data?.booking;
     const stationRow = data?.station || station;

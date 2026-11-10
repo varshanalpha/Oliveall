@@ -7,6 +7,8 @@ import AdminHeader from './AdminHeader';
 import BottomNavigation from './BottomNavigation';
 
 function getRouteOrderIndex(pathname) {
+  if (pathname.startsWith('/admin/stations/') && pathname.includes('/close-slots')) return 3.5;
+  if (pathname.startsWith('/admin/stations')) return 3;
   if (pathname.startsWith('/admin/check-in')) return 2;
   if (pathname.startsWith('/admin/spot-booking/details')) return 1.5;
   if (pathname.startsWith('/admin/spot-booking')) return 1;
@@ -14,6 +16,7 @@ function getRouteOrderIndex(pathname) {
 }
 
 function getActiveTabId(pathname) {
+  if (pathname.startsWith('/admin/stations')) return 'stations';
   if (pathname.startsWith('/admin/check-in')) return 'check-in';
   if (pathname.startsWith('/admin/spot-booking')) return 'spot-booking';
   return 'dashboard';

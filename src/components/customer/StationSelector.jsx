@@ -7,6 +7,7 @@ export default function StationSelector({ stations, selectedStation, onSelectSta
   const stationList = stations && stations.length > 0 ? stations : DEFAULT_STATIONS;
 
   if (!selectedStation) return null;
+  const isSelectedDisabled = selectedStation.isActive === false;
 
   return (
     <div className="relative w-full">
@@ -20,7 +21,11 @@ export default function StationSelector({ stations, selectedStation, onSelectSta
             setDropdownOpen((prev) => !prev);
           }
         }}
-        className="relative flex items-center justify-between p-4 sm:p-5 rounded-3xl bg-[#120f22]/85 hover:bg-[#151129]/90 border border-white/[0.09] hover:border-purple-500/40 backdrop-blur-xl shadow-glass-card transition-all cursor-pointer select-none group"
+        className={`relative flex items-center justify-between p-4 sm:p-5 rounded-3xl backdrop-blur-xl shadow-glass-card transition-all cursor-pointer select-none group border ${
+          isSelectedDisabled
+            ? 'bg-rose-950/20 border-rose-500/40 hover:border-rose-400/60'
+            : 'bg-[#120f22]/85 hover:bg-[#151129]/90 border-white/[0.09] hover:border-purple-500/40'
+        }`}
       >
         <div className="flex items-center gap-3.5 sm:gap-4">
           {/* Station Image Thumbnail */}
@@ -29,7 +34,9 @@ export default function StationSelector({ stations, selectedStation, onSelectSta
             <img
               src={selectedStation.image}
               alt={selectedStation.name}
-              className="w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)]"
+              className={`w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)] ${
+                isSelectedDisabled ? 'grayscale-[55%] opacity-55' : ''
+              }`}
             />
           </div>
 
@@ -41,16 +48,25 @@ export default function StationSelector({ stations, selectedStation, onSelectSta
             <p className="text-xs sm:text-sm text-slate-400 font-medium mt-0.5">
               {selectedStation.category}
             </p>
-
-
+            {isSelectedDisabled && (
+              <p className="text-[11px] sm:text-xs font-bold text-rose-300 mt-1">
+                Temporarily Unavailable
+              </p>
+            )}
           </div>
         </div>
 
         {/* Right Station Category Pill & Dropdown Chevron */}
         <div className="flex flex-col items-end gap-2 shrink-0">
-          <span className="px-3 py-1 rounded-full bg-purple-600/30 border border-purple-400/40 text-purple-200 text-xs font-bold uppercase tracking-wider shadow-sm">
-            {selectedStation.tag}
-          </span>
+          {isSelectedDisabled ? (
+            <span className="px-3 py-1 rounded-full bg-rose-500/20 border border-rose-400/45 text-rose-200 text-xs font-bold uppercase tracking-wider shadow-sm">
+              Disabled
+            </span>
+          ) : (
+            <span className="px-3 py-1 rounded-full bg-purple-600/30 border border-purple-400/40 text-purple-200 text-xs font-bold uppercase tracking-wider shadow-sm">
+              {selectedStation.tag}
+            </span>
+          )}
           <div className="flex items-center gap-1 text-slate-400 text-xs font-medium group-hover:text-white transition">
             <span>Change</span>
             <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
@@ -71,36 +87,52 @@ export default function StationSelector({ stations, selectedStation, onSelectSta
             </div>
             {stationList.map((station) => {
               const isSelected = station.id === selectedStation.id;
+              const isDisabled = station.isActive === false;
               return (
                 <button
                   key={station.id}
                   type="button"
+                  disabled={isDisabled}
                   onClick={() => {
+                    if (isDisabled) return;
                     onSelectStation(station);
                     setDropdownOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition ${isSelected
-                    ? 'bg-purple-600/30 text-white border border-purple-500/40'
-                    : 'hover:bg-white/[0.06] text-slate-300 hover:text-white'
-                    }`}
+                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition ${
+                    isDisabled
+                      ? 'opacity-55 cursor-not-allowed bg-white/[0.02] text-slate-400'
+                      : isSelected
+                      ? 'bg-purple-600/30 text-white border border-purple-500/40 cursor-pointer'
+                      : 'hover:bg-white/[0.06] text-slate-300 hover:text-white cursor-pointer'
+                  }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <img
                       src={station.image}
                       alt={station.name}
-                      className="w-8 h-8 object-contain rounded-lg bg-[#0d091a] p-1 border border-white/10"
+                      className={`w-8 h-8 object-contain rounded-lg bg-[#0d091a] p-1 border border-white/10 ${
+                        isDisabled ? 'grayscale opacity-60' : ''
+                      }`}
                     />
                     <div>
                       <span className="text-sm font-bold block leading-tight">{station.name}</span>
-                      <span className="text-[11px] text-slate-400">{station.category}</span>
+                      <span className="text-[11px] text-slate-400">
+                        {isDisabled ? 'Temporarily Unavailable' : station.category}
+                      </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.08] text-purple-200 font-semibold">
-                      {station.tag}
-                    </span>
-                    {isSelected && <Check className="w-4 h-4 text-purple-400" />}
+                    {isDisabled ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-400/35 text-rose-300 font-semibold">
+                        Disabled
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.08] text-purple-200 font-semibold">
+                        {station.tag}
+                      </span>
+                    )}
+                    {isSelected && !isDisabled && <Check className="w-4 h-4 text-purple-400" />}
                   </div>
                 </button>
               );
