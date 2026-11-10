@@ -5,7 +5,7 @@ export default function StationCard({ station }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/book-slot?station=${station.id}`);
+    navigate(`/book-slot?station=${station.slug || station.id}`);
   };
 
   return (

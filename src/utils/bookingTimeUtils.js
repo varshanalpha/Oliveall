@@ -87,7 +87,7 @@ export function calculateEndTime(startTime24, durationMinutes) {
 }
 
 /**
- * Formats a Date object into human-readable strings
+ * Formats a Date object (using its calendar Y/M/D in local or IST) into human-readable strings
  */
 export function formatDate(dateObj) {
   const d = new Date(dateObj);
@@ -97,14 +97,105 @@ export function formatDate(dateObj) {
   const dayName = days[d.getDay()];
   const monthName = months[d.getMonth()];
   const dayNum = d.getDate();
+  const monthNum = d.getMonth() + 1;
   const year = d.getFullYear();
 
+  const isoDate = `${year}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+
   return {
-    isoDate: d.toISOString().split('T')[0], // 'YYYY-MM-DD'
-    shortLabel: `${dayName} ${dayNum} ${monthName}`, // 'Sun 9 Nov'
-    fullLabel: `${dayName}, ${dayNum} ${monthName} ${year}`, // 'Sun, 9 Nov 2026'
+    isoDate, // 'YYYY-MM-DD'
+    shortLabel: `${dayName} ${dayNum} ${monthName}`, // 'Tue 10 Nov'
+    fullLabel: `${dayName}, ${dayNum} ${monthName} ${year}`, // 'Tue, 10 Nov 2026'
     dayNum,
     dayName,
+  };
+}
+
+/**
+ * Extracts calendar parts in Asia/Kolkata timezone for a Date
+ */
+export function getKolkataParts(referenceDate = new Date()) {
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(new Date(referenceDate));
+  const map = {};
+  for (const p of parts) {
+    map[p.type] = p.value;
+  }
+  const hourNum = Number(map.hour) === 24 ? 0 : Number(map.hour);
+  const minuteNum = Number(map.minute);
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: hourNum,
+    minute: minuteNum,
+    isoDate: `${map.year}-${map.month}-${map.day}`,
+  };
+}
+
+/**
+ * Builds an ISO-8601 timestamp string in Asia/Kolkata (+05:30) from date 'YYYY-MM-DD' and time 'HH:mm'
+ */
+export function buildKolkataTimestamp(isoDate, time24 = '00:00') {
+  const [h = '00', m = '00'] = String(time24).split(':');
+  return `${isoDate}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+05:30`;
+}
+
+/**
+ * Returns [startIso, endIso) UTC/offset strings covering the full 24h Asia/Kolkata day
+ */
+export function getKolkataDayBounds(isoDate) {
+  const startStr = `${isoDate}T00:00:00+05:30`;
+  const startDate = new Date(startStr);
+  const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+  return {
+    rangeStart: startDate.toISOString(),
+    rangeEnd: endDate.toISOString(),
+    dayStartMs: startDate.getTime(),
+  };
+}
+
+/**
+ * Formats a start_at / end_at timestamptz pair in Asia/Kolkata (12h AM/PM + readable date)
+ */
+export function formatBookingTimesKolkata(startAtIso, endAtIso) {
+  const start = new Date(startAtIso);
+  const end = new Date(endAtIso);
+
+  const dateFmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  const timeFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const startParts = getKolkataParts(start);
+  const endParts = getKolkataParts(end);
+  const isCrossMidnight = endParts.isoDate !== startParts.isoDate;
+
+  return {
+    dateLabel: dateFmt.format(start),
+    isoDate: startParts.isoDate,
+    startTimeFormatted: timeFmt.format(start),
+    endTimeFormatted: timeFmt.format(end),
+    timeRange: `${timeFmt.format(start)} – ${timeFmt.format(end)}`,
+    isCrossMidnight,
   };
 }
 

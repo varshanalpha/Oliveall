@@ -5,6 +5,7 @@ export default function BookedSlots({
   bookedSlots = [],
   stationName = 'ALPHA',
   dateLabel = 'Today',
+  loading = false,
 }) {
   const [showAll, setShowAll] = useState(false);
 
@@ -34,7 +35,11 @@ export default function BookedSlots({
       </div>
 
       {/* Booked Slots List */}
-      {bookedSlots.length === 0 ? (
+      {loading ? (
+        <div className="p-3.5 rounded-2xl bg-[#120f22]/60 border border-white/[0.06] text-center text-xs text-slate-400 animate-pulse">
+          Checking live availability...
+        </div>
+      ) : bookedSlots.length === 0 ? (
         <div className="p-3.5 rounded-2xl bg-[#120f22]/60 border border-white/[0.06] text-center text-xs text-slate-400">
           No bookings yet for this date. All hours are currently available!
         </div>

@@ -1,11 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import CustomerHeader from '../../components/customer/CustomerHeader';
 import HeroSection from '../../components/customer/HeroSection';
 import NavigationCard from '../../components/customer/NavigationCard';
 import StationCard from '../../components/customer/StationCard';
-import { STATIONS } from '../../services/mock/stationMockData';
+import { fetchActiveStations } from '../../services/stationService';
 
 export default function CustomerHome() {
+  const [stations, setStations] = useState([]);
+  const [loadingStations, setLoadingStations] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadStations() {
+      const { stations: list } = await fetchActiveStations();
+      if (mounted) {
+        setStations(list);
+        setLoadingStations(false);
+      }
+    }
+    loadStations();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen w-full bg-[#07060e] text-white flex flex-col justify-between selection:bg-purple-600 selection:text-white relative overflow-x-hidden">
 
@@ -42,12 +60,23 @@ export default function CustomerHome() {
             </div>
           </div>
 
-          {/* 6 Stations Grid */}
-          <div className="grid grid-cols-2 gap-3.5">
-            {STATIONS.map((station) => (
-              <StationCard key={station.id} station={station} />
-            ))}
-          </div>
+          {/* Stations Grid */}
+          {loadingStations ? (
+            <div className="grid grid-cols-2 gap-3.5">
+              {[...Array(6)].map((_, idx) => (
+                <div
+                  key={idx}
+                  className="h-52 rounded-3xl bg-[#120f22]/70 border border-white/[0.06] animate-pulse"
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3.5">
+              {stations.map((station) => (
+                <StationCard key={station.id} station={station} />
+              ))}
+            </div>
+          )}
         </section>
 
       </main>

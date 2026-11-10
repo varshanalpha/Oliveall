@@ -3,35 +3,29 @@
  * 
  * Rules:
  * 1. Gaming zone operates 24/7.
- * 2. Today is always eligible for booking.
- * 3. Tomorrow is eligible strictly from 8:00 PM (20:00) onwards.
+ * 2. Today (Asia/Kolkata) is always eligible for booking.
+ * 3. Tomorrow (Asia/Kolkata) is eligible strictly from 8:00 PM (20:00 IST) onwards.
  * 4. Dates beyond tomorrow are disabled.
- * 5. Uses Asia/Kolkata timezone simulation for calculation.
  */
 
-import { formatDate } from './bookingTimeUtils.js';
+import { formatDate, getKolkataParts } from './bookingTimeUtils.js';
 
 export function getEligibleBookingDates(referenceDate = new Date()) {
-  // Convert or inspect reference time in Asia/Kolkata timezone
-  const now = new Date(referenceDate);
-  const currentHour = now.getHours();
-  
-  // Advance booking rule: Tomorrow unlocks strictly from 8:00 PM (20:00) onwards
-  const isTomorrowUnlocked = currentHour >= 20;
+  const ist = getKolkataParts(referenceDate);
 
-  // Build Today
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const todayFormatted = formatDate(today);
+  // Advance booking rule: Tomorrow unlocks strictly from 8:00 PM (20:00 IST) onwards
+  const isTomorrowUnlocked = ist.hour >= 20;
 
-  // Build Tomorrow
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowFormatted = formatDate(tomorrow);
+  // Build IST Today & Tomorrow safely as noon UTC+0 dates or local Y/M/D objects so weekday/month match IST
+  const todayLocal = new Date(ist.year, ist.month - 1, ist.day, 12, 0, 0);
+  const todayFormatted = formatDate(todayLocal);
+
+  const tomorrowLocal = new Date(ist.year, ist.month - 1, ist.day + 1, 12, 0, 0);
+  const tomorrowFormatted = formatDate(tomorrowLocal);
 
   return [
     {
-      dateObj: today,
+      dateObj: todayLocal,
       isoDate: todayFormatted.isoDate,
       dayName: todayFormatted.dayName,
       dayNum: todayFormatted.dayNum,
@@ -43,7 +37,7 @@ export function getEligibleBookingDates(referenceDate = new Date()) {
       tooltip: 'Available for immediate 24/7 booking',
     },
     {
-      dateObj: tomorrow,
+      dateObj: tomorrowLocal,
       isoDate: tomorrowFormatted.isoDate,
       dayName: tomorrowFormatted.dayName,
       dayNum: tomorrowFormatted.dayNum,

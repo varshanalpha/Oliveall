@@ -1,9 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ClipboardCheck,
-  Gamepad2,
 } from 'lucide-react';
 import AuthBranding from '../../components/auth/AuthBranding';
 import BookingProgress from '../../components/customer/BookingProgress';
@@ -14,8 +13,10 @@ import BookingTermsCheckbox from '../../components/customer/BookingTermsCheckbox
 import BookingTermsModal from '../../components/customer/BookingTermsModal';
 import ConfirmBookingButton from '../../components/customer/ConfirmBookingButton';
 import BookingSuccessModal from '../../components/customer/BookingSuccessModal';
+import StatusMessage from '../../components/ui/StatusMessage';
 import { STATIONS, getStationById } from '../../services/mock/stationMockData';
-import { createCustomerBooking } from '../../services/mock/bookingStore';
+import { fetchActiveStations, resolveStationFromList } from '../../services/stationService';
+import { createSupabaseBooking } from '../../services/bookingService';
 import {
   calculateStationCharge,
   calculatePlatformFee,
@@ -25,20 +26,7 @@ import { formatDate } from '../../utils/bookingTimeUtils';
 
 /**
  * OLIVEAL GAMING ZONE — CONFIRM BOOKING PAGE
- * Dedicated step-3 booking confirmation screen matching the approved visual reference.
- * 
- * Sections:
- * 1. Top Header with Back button and centered Oliveal branding
- * 2. 3-Step Booking Progress Indicator
- * 3. Page Heading ("Confirm Booking" with checklist icon)
- * 4. Master Card Container:
- *    - Selected Gaming Station Section
- *    - Divider
- *    - Booking Details Section (with Edit button)
- *    - Divider
- *    - Payment Summary Section (dynamic station charge, platform fee, total amount)
- * 5. Booking Terms & Conditions checkbox
- * 6. Full-width Confirm Booking & Pay CTA button
+ * Dedicated step-3 booking confirmation screen wired to Supabase RPCs.
  */
 export default function ConfirmBooking() {
   const location = useLocation();
@@ -47,16 +35,38 @@ export default function ConfirmBooking() {
   // State passed from BookSlot.jsx
   const incoming = location.state || {};
 
-  // Resolve Station (from state or default fallback)
-  const selectedStation = useMemo(() => {
+  // Resolve Station (from state, or hydrate live Supabase UUID if direct URL entry)
+  const [selectedStation, setSelectedStation] = useState(() => {
     if (incoming.station) return incoming.station;
     if (incoming.stationId) return getStationById(incoming.stationId);
-    return STATIONS[0]; // ALPHA by default
-  }, [incoming.station, incoming.stationId]);
+    return STATIONS[0];
+  });
+
+  useEffect(() => {
+    if (selectedStation?.isLiveDb) return;
+    let mounted = true;
+    async function hydrateLiveStation() {
+      const { stations } = await fetchActiveStations();
+      if (!mounted || !stations?.length) return;
+      const resolved = resolveStationFromList(
+        stations,
+        incoming.station?.slug || incoming.station?.id || incoming.stationId || selectedStation?.id
+      );
+      if (resolved) setSelectedStation(resolved);
+    }
+    hydrateLiveStation();
+    return () => {
+      mounted = false;
+    };
+  }, [incoming.station, incoming.stationId, selectedStation?.id, selectedStation?.isLiveDb]);
 
   const defaultToday = useMemo(() => formatDate(new Date()), []);
 
   // Resolve Date
+  const bookingIsoDate = useMemo(() => {
+    return incoming.date?.isoDate || defaultToday.isoDate;
+  }, [incoming.date, defaultToday]);
+
   const bookingDate = useMemo(() => {
     if (incoming.date?.fullLabel) return incoming.date.fullLabel;
     if (incoming.dateFormatted?.fullLabel) return incoming.dateFormatted.fullLabel;
@@ -75,7 +85,7 @@ export default function ConfirmBooking() {
   // Simulators strictly accommodate 1 player
   const players = isSimulator ? 1 : (incoming.players || 2);
   const startTime = incoming.startTime || '18:30';
-  
+
   const timeRange = useMemo(() => {
     if (incoming.calculatedSlot?.displayRange) {
       return incoming.calculatedSlot.displayRange;
@@ -88,7 +98,7 @@ export default function ConfirmBooking() {
 
   // Dynamic Pricing Calculations
   const stationCharge = useMemo(() => {
-    const category = selectedStation.category || selectedStation.type;
+    const category = selectedStation?.category || selectedStation?.type;
     return calculateStationCharge(category, players, durationMinutes);
   }, [selectedStation, players, durationMinutes]);
 
@@ -101,51 +111,49 @@ export default function ConfirmBooking() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
 
   // Navigate back to BookSlot preserving selections
   const handleEdit = () => {
     navigate('/book-slot', {
       state: {
-        stationId: selectedStation.id,
+        stationId: selectedStation?.id,
+        stationSlug: selectedStation?.slug || selectedStation?.id,
         date: incoming.date,
         startTime: incoming.startTime || startTime,
         duration: durationMinutes,
-        players: players,
+        players,
       },
     });
   };
 
-  // Submit and confirm booking
-  const handleConfirmAndPay = () => {
-    if (!agreedToTerms) return;
+  // Submit and persist booking to Supabase via atomic RPC
+  const handleConfirmAndPay = async () => {
+    if (!agreedToTerms || isSubmitting) return;
 
+    setSubmitError(null);
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const startParts = timeRange.split(' – ');
-      const startFormatted = startParts[0] || '06:30 PM';
-      const endFormatted = startParts[1] || '08:00 PM';
+    const { booking, error } = await createSupabaseBooking({
+      station: selectedStation,
+      isoDate: bookingIsoDate,
+      startTime,
+      durationMinutes,
+      players,
+      termsAccepted: agreedToTerms,
+    });
 
-      const newBooking = createCustomerBooking({
-        station: selectedStation,
-        dateFormatted: incoming.date || {
-          fullLabel: bookingDate,
-          isoDate: defaultToday.isoDate,
-        },
-        startTimeFormatted: startFormatted,
-        endTimeFormatted: endFormatted,
-        startMinutes: incoming.calculatedSlot?.startMinutes || 1110,
-        endMinutes: incoming.calculatedSlot?.endMinutes || 1200,
-        durationMinutes,
-        durationLabel: `${durationMinutes} Minutes`,
-        players,
-        totalPrice: totalAmount,
-      });
+    setIsSubmitting(false);
 
-      setIsSubmitting(false);
-      setConfirmedBooking(newBooking);
-    }, 700);
+    if (error || !booking) {
+      setSubmitError(
+        error?.message || 'Unable to confirm booking right now. Please verify slot availability and try again.'
+      );
+      return;
+    }
+
+    setConfirmedBooking(booking);
   };
 
   return (
@@ -240,6 +248,15 @@ export default function ConfirmBooking() {
           onChange={setAgreedToTerms}
           onOpenTerms={() => setShowTermsModal(true)}
         />
+
+        {/* Server Validation / Conflict Alert */}
+        {submitError && (
+          <StatusMessage
+            type="error"
+            message={submitError}
+            onClose={() => setSubmitError(null)}
+          />
+        )}
 
         {/* 6. Full-Width Confirm Booking & Pay CTA Button */}
         <div className="mt-1">

@@ -1,31 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Gamepad2 } from 'lucide-react';
 import CustomerHeader from '../../components/customer/CustomerHeader';
 import BookingCard from '../../components/customer/BookingCard';
 import BookingQrModal from '../../components/customer/BookingQrModal';
-import { getCustomerBookings } from '../../services/mock/bookingStore';
+import { useAuth } from '../../context/AuthContext';
+import { fetchCustomerBookings } from '../../services/bookingService';
 
 export default function MyBookings() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'past'
   const [bookings, setBookings] = useState([]);
+  const [loadingBookings, setLoadingBookings] = useState(true);
   const [selectedQrBooking, setSelectedQrBooking] = useState(null);
 
-  // Load customer bookings
-  const loadBookings = () => {
-    const list = getCustomerBookings();
+  const loadBookings = useCallback(async () => {
+    if (!user?.id) {
+      setBookings([]);
+      setLoadingBookings(false);
+      return;
+    }
+    setLoadingBookings(true);
+    const { bookings: list } = await fetchCustomerBookings(user.id);
     setBookings(list);
-  };
+    setLoadingBookings(false);
+  }, [user?.id]);
 
   useEffect(() => {
     loadBookings();
     window.addEventListener('oliveal_booking_updated', loadBookings);
     return () => window.removeEventListener('oliveal_booking_updated', loadBookings);
-  }, []);
+  }, [loadBookings]);
 
-  const upcomingBookings = bookings.filter((b) => b.isUpcoming !== false && b.status !== 'Completed');
-  const pastBookings = bookings.filter((b) => b.isUpcoming === false || b.status === 'Completed');
+  const upcomingBookings = bookings.filter((b) => b.isUpcoming === true);
+  const pastBookings = bookings.filter((b) => b.isUpcoming === false);
 
   const displayedList = activeTab === 'upcoming' ? upcomingBookings : pastBookings;
 
@@ -91,7 +100,16 @@ export default function MyBookings() {
 
         {/* Booking Cards List */}
         <div className="space-y-3.5 mt-1">
-          {displayedList.length === 0 ? (
+          {loadingBookings ? (
+            <div className="space-y-3.5">
+              {[...Array(2)].map((_, idx) => (
+                <div
+                  key={idx}
+                  className="h-44 rounded-3xl bg-[#120f22]/70 border border-white/[0.06] animate-pulse"
+                />
+              ))}
+            </div>
+          ) : displayedList.length === 0 ? (
             <div className="p-8 rounded-3xl bg-[#120f22]/70 border border-white/[0.08] text-center backdrop-blur-xl my-6">
               <div className="w-14 h-14 rounded-full bg-purple-600/20 border border-purple-500/30 flex items-center justify-center mx-auto mb-3 text-purple-400">
                 <Calendar className="w-7 h-7" />
@@ -140,4 +158,3 @@ export default function MyBookings() {
     </div>
   );
 }
-

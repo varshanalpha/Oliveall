@@ -7,7 +7,9 @@ export default function BookingQrModal({ isOpen, booking, onClose }) {
 
   if (!isOpen || !booking) return null;
 
-  const passCode = `OGZ-${booking.stationName || 'STN'}-${booking.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
+  const passCode =
+    booking.bookingNumber ||
+    `OGZ-${(booking.stationName || 'STN').replace(/[^a-zA-Z0-9]/g, '')}-${String(booking.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
 
   // QR Code payload formatted for oliveal desk scanner verification
   const qrPayload = JSON.stringify({

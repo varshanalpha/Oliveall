@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
-import { STATIONS } from '../../services/mock/stationMockData';
+import { STATIONS as DEFAULT_STATIONS } from '../../services/mock/stationMockData';
 
-export default function StationSelector({ selectedStation, onSelectStation }) {
+export default function StationSelector({ stations, selectedStation, onSelectStation }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const stationList = stations && stations.length > 0 ? stations : DEFAULT_STATIONS;
+
+  if (!selectedStation) return null;
 
   return (
     <div className="relative w-full">
@@ -66,7 +69,7 @@ export default function StationSelector({ selectedStation, onSelectStation }) {
             <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-purple-300/80 border-b border-white/[0.08] mb-1">
               Select Station
             </div>
-            {STATIONS.map((station) => {
+            {stationList.map((station) => {
               const isSelected = station.id === selectedStation.id;
               return (
                 <button

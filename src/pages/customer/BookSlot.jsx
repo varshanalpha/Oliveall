@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Info, HelpCircle } from 'lucide-react';
 import CustomerHeader from '../../components/customer/CustomerHeader';
@@ -7,13 +7,13 @@ import DateSelector from '../../components/customer/DateSelector';
 import PlayerSelector from '../../components/customer/PlayerSelector';
 import BookedSlots from '../../components/customer/BookedSlots';
 import SlotCreator from '../../components/customer/SlotCreator';
-import BookingSuccessModal from '../../components/customer/BookingSuccessModal';
 import PrimaryButton from '../../components/auth/PrimaryButton';
-import { STATIONS, getStationById } from '../../services/mock/stationMockData';
+import { getStationById, STATIONS as DEFAULT_STATIONS } from '../../services/mock/stationMockData';
+import { fetchActiveStations, resolveStationFromList } from '../../services/stationService';
+import { fetchBookedSlotsForStation } from '../../services/bookingService';
 import { getEligibleBookingDates } from '../../utils/dateEligibility';
-import { calculateEndTime, generateStartTimeOptions } from '../../utils/bookingTimeUtils';
+import { calculateEndTime } from '../../utils/bookingTimeUtils';
 import { validateSlotAvailability } from '../../utils/bookingAvailability';
-import { getBookedSlotsForStation, createCustomerBooking } from '../../services/mock/bookingStore';
 
 export default function BookSlot() {
   const navigate = useNavigate();
@@ -21,19 +21,27 @@ export default function BookSlot() {
   const [searchParams] = useSearchParams();
 
   const editState = location.state || {};
+  const stationParam = editState.stationSlug || editState.stationId || searchParams.get('station');
 
-  // 1. Station State (Preselect from edit state or URL query e.g. /book-slot?station=alpha)
-  const stationParam = editState.stationId || searchParams.get('station');
+  // 1. Live Stations Catalog & Selected Station
+  const [stations, setStations] = useState(DEFAULT_STATIONS);
   const [selectedStation, setSelectedStation] = useState(() => getStationById(stationParam));
 
-  // If query param changes, sync station
   useEffect(() => {
-    if (stationParam) {
-      setSelectedStation(getStationById(stationParam));
+    let mounted = true;
+    async function loadStations() {
+      const { stations: liveList } = await fetchActiveStations();
+      if (!mounted || !liveList || liveList.length === 0) return;
+      setStations(liveList);
+      setSelectedStation((prev) => resolveStationFromList(liveList, stationParam || prev?.slug || prev?.id));
     }
+    loadStations();
+    return () => {
+      mounted = false;
+    };
   }, [stationParam]);
 
-  // 2. Date State (Calculate eligible dates: Today vs Tomorrow 8 PM rule)
+  // 2. Date State (Calculate eligible dates: Today vs Tomorrow 8 PM rule in Asia/Kolkata)
   const eligibleDates = useMemo(() => getEligibleBookingDates(), []);
   const [selectedDate, setSelectedDate] = useState(() => {
     if (editState.date?.isoDate) {
@@ -59,35 +67,35 @@ export default function BookSlot() {
     if (isSimulator && players !== 1) {
       setPlayers(1);
     }
-  }, [selectedStation.id, isSimulator]);
+  }, [selectedStation?.id, isSimulator, players]);
 
   // 4. Time Selection State (15-min intervals, strictly 60, 90, 120 min)
-  const [startTime, setStartTime] = useState(() => editState.startTime || '18:30'); // Default 06:30 PM matching reference
-  const [duration, setDuration] = useState(() => editState.duration || 90); // Default 90 min matching reference
+  const [startTime, setStartTime] = useState(() => editState.startTime || '18:30');
+  const [duration, setDuration] = useState(() => editState.duration || 90);
 
-  // 5. Existing Booked Slots for Station & Date
+  // 5. Live Booked Slots for Station & Date (anonymized from Supabase RPC)
   const [bookedSlots, setBookedSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   // 6. UI & Modal States
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const [confirmedBooking, setConfirmedBooking] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load booked slots whenever station or date changes
-  const refreshSlots = () => {
-    const slots = getBookedSlotsForStation(selectedStation.id, selectedDate.isoDate);
+  const refreshSlots = useCallback(async () => {
+    if (!selectedStation || !selectedDate?.isoDate) return;
+    setLoadingSlots(true);
+    const { slots } = await fetchBookedSlotsForStation(selectedStation, selectedDate.isoDate);
     setBookedSlots(slots);
-  };
+    setLoadingSlots(false);
+  }, [selectedStation, selectedDate?.isoDate]);
 
   useEffect(() => {
     refreshSlots();
-  }, [selectedStation.id, selectedDate.isoDate]);
+  }, [refreshSlots]);
 
-  // Listen for storage updates
   useEffect(() => {
     window.addEventListener('oliveal_booking_updated', refreshSlots);
     return () => window.removeEventListener('oliveal_booking_updated', refreshSlots);
-  }, [selectedStation.id, selectedDate.isoDate]);
+  }, [refreshSlots]);
 
   // 7. Automatic End Time Calculation (Customers NEVER edit end time manually)
   const calculatedSlot = useMemo(() => {
@@ -162,6 +170,7 @@ export default function BookSlot() {
 
         {/* 1. Selected Station Hero with Switcher */}
         <StationSelector
+          stations={stations}
           selectedStation={selectedStation}
           onSelectStation={(station) => setSelectedStation(station)}
         />
@@ -183,8 +192,9 @@ export default function BookSlot() {
         {/* 4. Booked Slots (Red/Pink list with View All toggle) */}
         <BookedSlots
           bookedSlots={bookedSlots}
-          stationName={selectedStation.name}
+          stationName={selectedStation?.name || 'Station'}
           dateLabel={selectedDate.shortLabel}
+          loading={loadingSlots}
         />
 
         {/* 5. Create Your Slot (Start Time + Duration + Automatic End-Time) */}
@@ -203,7 +213,6 @@ export default function BookSlot() {
           <PrimaryButton
             type="button"
             onClick={handleConfirmBooking}
-            loading={isSubmitting}
             disabled={!validation.isValid}
           >
             Confirm Booking
@@ -223,8 +232,8 @@ export default function BookSlot() {
             </h3>
             <ul className="list-disc pl-4 space-y-1.5 text-slate-300">
               <li><strong>24/7 Operation:</strong> Slots can be booked across any hour day or night.</li>
-              <li><strong>Advance Bookings:</strong> Tomorrow's slots unlock daily at 8:00 PM.</li>
-              <li><strong>Capacity:</strong> Each station accommodates a maximum of 2 players.</li>
+              <li><strong>Advance Bookings:</strong> Tomorrow's slots unlock daily at 8:00 PM IST.</li>
+              <li><strong>Capacity:</strong> PS5 stations accommodate up to 2 players; Racing Simulators are strictly 1 player per cockpit.</li>
               <li><strong>Durations:</strong> Choose 60, 90, or 120 minutes. End times calculate automatically.</li>
             </ul>
             <button
@@ -238,13 +247,6 @@ export default function BookSlot() {
         </div>
       )}
 
-      {/* Success Celebration Modal */}
-      <BookingSuccessModal
-        isOpen={Boolean(confirmedBooking)}
-        booking={confirmedBooking}
-        onClose={() => setConfirmedBooking(null)}
-      />
-
       {/* Footer */}
       <footer className="relative z-10 w-full py-4 text-center text-[11px] text-slate-500 border-t border-white/[0.06]">
         Oliveal Gaming Zone © 2026. All rights reserved.
@@ -252,4 +254,3 @@ export default function BookSlot() {
     </div>
   );
 }
-
