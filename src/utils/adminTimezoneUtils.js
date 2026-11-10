@@ -130,6 +130,22 @@ export function formatBookingDateIst(isoString) {
 }
 
 /**
+ * Formats a timestamptz ISO value into a 12-hour IST clock time (e.g. "04:32 PM")
+ */
+export function formatTimeIst(isoString) {
+  if (!isoString) return null;
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: BUSINESS_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+}
+
+/**
  * Derives accurate operational booking badge from BOTH database status and actual timestamps.
  * Never relies solely on a static stored status if the live time window has elapsed or begun.
  */

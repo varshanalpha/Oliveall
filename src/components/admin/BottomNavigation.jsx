@@ -4,7 +4,7 @@ import { House, Zap, ScanLine, Gamepad2, Settings } from 'lucide-react';
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: House, route: '/admin/dashboard' },
   { id: 'spot-booking', label: 'Spot Booking', icon: Zap, route: '/admin/spot-booking' },
-  { id: 'check-in', label: 'Check In', icon: ScanLine, route: null },
+  { id: 'check-in', label: 'Check In', icon: ScanLine, route: '/admin/check-in' },
   { id: 'stations', label: 'Stations', icon: Gamepad2, route: null },
   { id: 'settings', label: 'Settings', icon: Settings, route: null },
 ];

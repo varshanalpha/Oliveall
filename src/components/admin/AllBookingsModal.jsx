@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   Calendar,
@@ -106,12 +107,12 @@ export default function AllBookingsModal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="all-bookings-modal-title"
-      className="fixed inset-0 z-50 bg-[#080510]/96 backdrop-blur-2xl flex flex-col text-white"
+      className="fixed inset-0 z-50 bg-[#080510]/[0.98] backdrop-blur-2xl flex flex-col text-white"
     >
       {/* Top Sticky Header */}
       <header className="shrink-0 w-full border-b border-purple-500/20 bg-[#0D071A]/95 px-4 sm:px-6 pt-[max(env(safe-area-inset-top),0.875rem)] pb-3">
@@ -323,7 +324,8 @@ export default function AllBookingsModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
