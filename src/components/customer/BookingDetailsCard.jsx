@@ -44,7 +44,7 @@ export default function BookingDetailsCard({
 
       {/* Details Rows */}
       <div className="space-y-2.5 text-xs sm:text-sm">
-        
+
         {/* Date Row */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-slate-400 font-medium">
