@@ -5,8 +5,9 @@
  * Verified Live Schema Dependencies:
  * - public.profiles (id, full_name, email, role, avatar_url)
  * - public.stations (id, name, is_active, display_order)
- * - public.bookings (id, booking_number, user_id, station_id, start_at, end_at, status, created_at)
- * - public.payments / public.notifications: Not yet present in DB; handled gracefully as unavailable/empty.
+ * - public.bookings (id, booking_number, user_id, station_id, start_at, end_at, status, booking_source, total_amount, created_at)
+ * - public.payments (id, booking_id, amount_paise, amount_inr, status, verified_at)
+ * - public.notifications: Not yet present in DB; handled gracefully as empty.
  */
 
 import { supabase } from '../lib/supabase';
@@ -147,7 +148,119 @@ function getRevenueSchemaUnavailableState() {
   return {
     available: false,
     amount: null,
+    onlineAmount: 0,
+    spotAmount: 0,
+    subtext: null,
     reason: 'Awaiting payment records',
+  };
+}
+
+function roundCurrency(value) {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function formatRevenueSubtext(onlineAmount, spotAmount) {
+  return `Online ₹${Number(onlineAmount || 0).toLocaleString('en-IN')} · Spot ₹${Number(spotAmount || 0).toLocaleString('en-IN')}`;
+}
+
+/**
+ * Computes Today's Revenue combining:
+ * 1) Captured online Razorpay payments verified today (public.payments)
+ * 2) Walk-in desk Spot Bookings created today (public.bookings with booking_source = 'spot')
+ */
+async function fetchTodayRevenueMetrics(startUtcIso, endUtcIso) {
+  const spotPromise =
+    spotMetadataColumnsSupported === false
+      ? Promise.resolve({ data: [], error: null })
+      : supabase
+          .from('bookings')
+          .select('id, total_amount, status, booking_source')
+          .eq('booking_source', 'spot')
+          .in('status', VALID_BOOKING_STATUSES)
+          .gte('created_at', startUtcIso)
+          .lt('created_at', endUtcIso)
+          .limit(1000);
+
+  const paymentsPromise = supabase
+    .from('payments')
+    .select('id, booking_id, amount_inr, amount_paise, bookings ( id, status )')
+    .eq('status', 'captured')
+    .gte('verified_at', startUtcIso)
+    .lt('verified_at', endUtcIso)
+    .limit(1000);
+
+  const [paymentsRes, spotRes] = await Promise.all([paymentsPromise, spotPromise]);
+
+  let spotRows = [];
+  if (spotRes.error) {
+    if (isMissingColumnError(spotRes.error)) {
+      spotMetadataColumnsSupported = false;
+    } else {
+      throw spotRes.error;
+    }
+  } else {
+    spotRows = spotRes.data || [];
+  }
+
+  const countedPaymentBookingIds = new Set();
+  let onlineAmount = 0;
+
+  if (paymentsRes.error) {
+    if (!isMissingRelationError(paymentsRes.error)) {
+      throw paymentsRes.error;
+    }
+
+    const fallbackSpotAmount = roundCurrency(
+      spotRows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0)
+    );
+    if (fallbackSpotAmount > 0) {
+      return {
+        available: true,
+        amount: fallbackSpotAmount,
+        onlineAmount: 0,
+        spotAmount: fallbackSpotAmount,
+        subtext: `Spot ₹${fallbackSpotAmount.toLocaleString('en-IN')}`,
+        reason: null,
+      };
+    }
+
+    return getRevenueSchemaUnavailableState();
+  }
+
+  for (const row of paymentsRes.data || []) {
+    if (row.bookings?.status === 'cancelled') continue;
+    if (row.booking_id) {
+      countedPaymentBookingIds.add(row.booking_id);
+    }
+    const rowInr =
+      row.amount_inr !== null && row.amount_inr !== undefined
+        ? Number(row.amount_inr)
+        : Number(row.amount_paise || 0) / 100;
+    if (Number.isFinite(rowInr)) {
+      onlineAmount += rowInr;
+    }
+  }
+
+  let spotAmount = 0;
+  for (const row of spotRows) {
+    if (row.id && countedPaymentBookingIds.has(row.id)) continue;
+    const rowTotal = Number(row.total_amount || 0);
+    if (Number.isFinite(rowTotal)) {
+      spotAmount += rowTotal;
+    }
+  }
+
+  onlineAmount = roundCurrency(onlineAmount);
+  spotAmount = roundCurrency(spotAmount);
+  const totalAmount = roundCurrency(onlineAmount + spotAmount);
+
+  return {
+    available: true,
+    amount: totalAmount,
+    onlineAmount,
+    spotAmount,
+    subtext: formatRevenueSubtext(onlineAmount, spotAmount),
+    reason: null,
   };
 }
 
@@ -210,6 +323,7 @@ export async function fetchAdminDashboardData() {
   // 2. Parallel Supabase queries using verified tables & FK joins
   const [
     todayBookingsRes,
+    revenueRes,
     totalUniqueCustomers,
     stationsRes,
     activeNowBookingsRes,
@@ -222,6 +336,9 @@ export async function fetchAdminDashboardData() {
       .gte('start_at', startUtcIso)
       .lt('start_at', endUtcIso)
       .in('status', VALID_BOOKING_STATUSES),
+
+    // Card 2: Today's Revenue combining Spot Bookings + captured Online Razorpay payments
+    fetchTodayRevenueMetrics(startUtcIso, endUtcIso),
 
     // Card 3: Unique customers derived directly from valid bookings in Supabase
     fetchUniqueBookedCustomersCount(),
@@ -243,8 +360,6 @@ export async function fetchAdminDashboardData() {
     // Recent Bookings (up to 20 latest so dashboard dynamically fills height down to bottom nav)
     queryAdminBookingsRange({ offset: 0, limit: RECENT_DASHBOARD_FETCH_LIMIT, withCount: true }),
   ]);
-
-  const revenueRes = getRevenueSchemaUnavailableState();
 
   // Surface genuine RLS / query failures loudly without substituting fake data
   if (todayBookingsRes.error) throw todayBookingsRes.error;

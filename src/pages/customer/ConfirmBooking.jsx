@@ -20,7 +20,13 @@ import {
   resolveStationFromList,
   subscribeToStationSync,
 } from '../../services/stationService';
-import { createSupabaseBooking } from '../../services/bookingService';
+import {
+  createRazorpayBookingOrder,
+  verifyRazorpayBookingPayment,
+  releasePendingBookingHold,
+} from '../../services/bookingService';
+import { useAuth } from '../../context/AuthContext';
+import { openRazorpayCheckout } from '../../utils/razorpayCheckout';
 import {
   fetchAppSettings,
   getCachedAppSettings,
@@ -40,6 +46,7 @@ import { formatDate, getKolkataTodayIso, isSlotStartInPast } from '../../utils/b
 export default function ConfirmBooking() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
 
   // State passed from BookSlot.jsx
   const incoming = location.state || {};
@@ -184,7 +191,7 @@ export default function ConfirmBooking() {
     });
   };
 
-  // Submit and persist booking to Supabase via atomic RPC
+  // Reserve slot hold via Razorpay order Edge Function, open checkout modal, and verify payment server-side
   const handleConfirmAndPay = async () => {
     const latestGlobal = await fetchAppSettings({ forceRefresh: true });
     const latestBookingEnabled = latestGlobal?.bookingEnabled !== false;
@@ -225,7 +232,7 @@ export default function ConfirmBooking() {
     setSubmitError(null);
     setIsSubmitting(true);
 
-    const { booking, error } = await createSupabaseBooking({
+    const { order, error: orderError } = await createRazorpayBookingOrder({
       station: selectedStation,
       isoDate: bookingIsoDate,
       startTime,
@@ -234,11 +241,58 @@ export default function ConfirmBooking() {
       termsAccepted: agreedToTerms,
     });
 
+    if (orderError || !order) {
+      setIsSubmitting(false);
+      setSubmitError(
+        orderError?.message || 'Unable to initiate payment right now. Please verify slot availability and try again.'
+      );
+      return;
+    }
+
+    let rzpResponse;
+    try {
+      rzpResponse = await openRazorpayCheckout({
+        keyId: order.keyId,
+        orderId: order.orderId,
+        amountPaise: order.amountPaise,
+        currency: order.currency,
+        name: 'Oliveal Gaming Zone',
+        description: `${selectedStation?.name || 'Gaming Station'} · ${durationMinutes} Mins`,
+        prefill: {
+          name: profile?.full_name || user?.user_metadata?.full_name || '',
+          email: user?.email || profile?.email || '',
+        },
+        notes: {
+          booking_id: order.booking?.id || '',
+          booking_number: order.booking?.bookingNumber || '',
+        },
+      });
+    } catch (checkoutErr) {
+      await releasePendingBookingHold(
+        order.booking?.id,
+        checkoutErr?.code === 'PAYMENT_FAILED' ? checkoutErr.message : 'checkout_cancelled'
+      );
+      setIsSubmitting(false);
+      setSubmitError(
+        checkoutErr?.message || 'Payment was cancelled before completion. Your selected slot has been released.'
+      );
+      return;
+    }
+
+    const { booking, error: verifyError } = await verifyRazorpayBookingPayment({
+      bookingId: order.booking?.id,
+      razorpay_order_id: rzpResponse?.razorpay_order_id,
+      razorpay_payment_id: rzpResponse?.razorpay_payment_id,
+      razorpay_signature: rzpResponse?.razorpay_signature,
+      fallbackStation: selectedStation,
+    });
+
     setIsSubmitting(false);
 
-    if (error || !booking) {
+    if (verifyError || !booking) {
       setSubmitError(
-        error?.message || 'Unable to confirm booking right now. Please verify slot availability and try again.'
+        verifyError?.message ||
+          'Payment could not be verified. If money was debited, it will reconcile automatically or be refunded.'
       );
       return;
     }

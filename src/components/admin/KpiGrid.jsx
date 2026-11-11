@@ -23,7 +23,28 @@ export default function KpiGrid({ kpis, loading = false }) {
 
   const revenueAvailable = Boolean(kpis?.todayRevenue?.available);
   const revenueValue = revenueAvailable ? formatInr(kpis.todayRevenue.amount ?? 0) : '—';
-  const revenueSubtext = revenueAvailable ? undefined : kpis?.todayRevenue?.reason || 'Awaiting payment records';
+  const hasOnlineAndSpotBreakdown =
+    revenueAvailable &&
+    Number.isFinite(Number(kpis?.todayRevenue?.onlineAmount)) &&
+    Number.isFinite(Number(kpis?.todayRevenue?.spotAmount)) &&
+    typeof kpis?.todayRevenue?.subtext === 'string' &&
+    kpis.todayRevenue.subtext.includes('Online');
+
+  const revenueSubtext = revenueAvailable
+    ? hasOnlineAndSpotBreakdown
+      ? (
+        <>
+          <span className="inline-block whitespace-nowrap">
+            Online {formatInr(kpis.todayRevenue.onlineAmount)}
+          </span>
+          {' · '}
+          <span className="inline-block whitespace-nowrap">
+            Spot {formatInr(kpis.todayRevenue.spotAmount)}
+          </span>
+        </>
+      )
+      : kpis?.todayRevenue?.subtext || undefined
+    : kpis?.todayRevenue?.reason || 'Awaiting payment records';
 
   const totalCustomersCount = kpis?.totalCustomers ?? 0;
 

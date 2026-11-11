@@ -178,7 +178,7 @@ export async function fetchCustomerBookings(userId) {
         )
       `)
       .eq('user_id', userId)
-      .neq('status', 'expired')
+      .in('status', ['confirmed', 'completed', 'cancelled'])
       .order('start_at', { ascending: false });
 
     if (error) throw error;
@@ -189,6 +189,222 @@ export async function fetchCustomerBookings(userId) {
   } catch (err) {
     console.error('Error fetching customer bookings:', err);
     return { bookings: getCachedCustomerBookings(userId) || [], error: err };
+  }
+}
+
+async function validateCustomerBookingPrechecks({ station, isoDate, startTime }) {
+  if (!station?.id || station.isLiveDb === false) {
+    throw new Error(
+      'Database tables not initialized yet. Please run migration 02_stations_and_bookings.sql in Supabase first.'
+    );
+  }
+
+  if (station.isActive === false) {
+    throw new Error(
+      `${station.name || 'This station'} is currently disabled (Temporarily Unavailable). Please select an active station.`
+    );
+  }
+
+  const latestSettings = await fetchAppSettings({ forceRefresh: true });
+  if (latestSettings.bookingEnabled === false) {
+    throw new Error('Bookings are temporarily unavailable. Please try again later.');
+  }
+  if (
+    latestSettings.advanceBookingEnabled === false &&
+    isoDate > getKolkataTodayIso()
+  ) {
+    throw new Error(
+      'Advance bookings for future dates are currently disabled. Same-day bookings remain available.'
+    );
+  }
+
+  const startAt = buildKolkataTimestamp(isoDate, startTime);
+
+  if (!isoDate || !startTime || Number.isNaN(Date.parse(startAt)) || isSlotStartInPast(isoDate, startTime, Date.now())) {
+    throw new Error('This time slot has already passed. Please choose an upcoming time.');
+  }
+
+  return startAt;
+}
+
+function mapBookingRpcError(error, station) {
+  const msg = String(error?.message || error || '');
+  const lower = msg.toLowerCase();
+  if (lower.includes('temporarily unavailable') && lower.includes('try again later')) {
+    return new Error('Bookings are temporarily unavailable. Please try again later.');
+  }
+  if (lower.includes('advance bookings for future dates')) {
+    return new Error(
+      'Advance bookings for future dates are currently disabled. Same-day bookings remain available.'
+    );
+  }
+  if (lower.includes('currently inactive') || lower.includes('temporarily unavailable')) {
+    return new Error(
+      `${station?.name || 'Selected station'} is currently disabled and temporarily unavailable.`
+    );
+  }
+  return error instanceof Error ? error : new Error(msg || 'Unable to process booking request.');
+}
+
+async function broadcastBookingsSync(stationId = null) {
+  invalidateBookingCaches();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('oliveal_booking_updated'));
+  }
+  try {
+    const ch = supabase.channel('oliveal-bookings-sync');
+    await ch.send({
+      type: 'broadcast',
+      event: 'booking_changed',
+      payload: { station_id: stationId, ts: Date.now() },
+    });
+    supabase.removeChannel(ch);
+  } catch {
+    // Non-fatal sync notification
+  }
+}
+
+async function extractEdgeFunctionErrorMessage(error, data, fallbackMessage) {
+  if (data?.error) {
+    return String(data.error);
+  }
+
+  const context = error?.context;
+  if (context && typeof context.json === 'function') {
+    try {
+      const payload = await context.json();
+      if (payload?.error) {
+        return String(payload.error);
+      }
+    } catch {
+      // Fall back cleanly when error context body is not JSON
+    }
+  }
+
+  if (
+    error?.name === 'FunctionsFetchError' ||
+    String(error?.message || '').includes('Failed to send a request to the Edge Function')
+  ) {
+    return 'Unable to reach the Razorpay payment service. Please check your internet connection or ensure Supabase Edge Functions are deployed.';
+  }
+
+  return error?.message || fallbackMessage;
+}
+
+/**
+ * Atomically reserves a 10-minute payment hold and creates a Razorpay Order via Edge Function.
+ */
+export async function createRazorpayBookingOrder({
+  station,
+  isoDate,
+  startTime,
+  durationMinutes,
+  players,
+  termsAccepted = true,
+}) {
+  try {
+    const startAt = await validateCustomerBookingPrechecks({ station, isoDate, startTime });
+
+    const { data, error } = await supabase.functions.invoke('create-razorpay-order', {
+      body: {
+        stationId: station.id,
+        startAt,
+        durationMinutes: Number(durationMinutes),
+        playerCount: Number(players),
+        termsAccepted: Boolean(termsAccepted),
+      },
+    });
+
+    if (error || !data?.orderId || !data?.booking || !data?.keyId) {
+      const rawMessage = await extractEdgeFunctionErrorMessage(
+        error,
+        data,
+        'Unable to initialize Razorpay payment. Please verify Edge Function setup and try again.'
+      );
+      throw mapBookingRpcError(new Error(rawMessage), station);
+    }
+
+    const mappedBooking = mapDbBookingToUi(data.booking, data.station || station);
+    await broadcastBookingsSync(station.id);
+
+    return {
+      order: {
+        orderId: data.orderId,
+        amountPaise: Number(data.amountPaise),
+        currency: data.currency || 'INR',
+        keyId: data.keyId,
+        booking: mappedBooking,
+        rawBooking: data.booking,
+        station: data.station || station,
+      },
+      error: null,
+    };
+  } catch (err) {
+    console.error('Error creating Razorpay booking order:', err);
+    return { order: null, error: err };
+  }
+}
+
+/**
+ * Verifies Razorpay HMAC signature and payment capture server-side, then promotes booking to confirmed.
+ */
+export async function verifyRazorpayBookingPayment({
+  bookingId,
+  razorpay_order_id,
+  razorpay_payment_id,
+  razorpay_signature,
+  fallbackStation = null,
+}) {
+  try {
+    const { data, error } = await supabase.functions.invoke('verify-razorpay-payment', {
+      body: {
+        bookingId,
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+      },
+    });
+
+    if (error || !data?.verified || !data?.booking) {
+      const msg = await extractEdgeFunctionErrorMessage(
+        error,
+        data,
+        'Payment could not be verified. If money was debited, it will reconcile automatically or be refunded.'
+      );
+      throw new Error(msg);
+    }
+
+    const mappedBooking = mapDbBookingToUi(data.booking, data.station || fallbackStation);
+    await broadcastBookingsSync(data.booking.station_id || fallbackStation?.id || null);
+
+    return {
+      booking: mappedBooking,
+      payment: data.payment || null,
+      error: null,
+    };
+  } catch (err) {
+    console.error('Error verifying Razorpay payment:', err);
+    return { booking: null, payment: null, error: err };
+  }
+}
+
+/**
+ * Releases an unpaid pending_payment slot hold immediately when checkout is dismissed or fails.
+ */
+export async function releasePendingBookingHold(bookingId, reason = 'checkout_cancelled') {
+  if (!bookingId) return { released: false, error: null };
+
+  try {
+    const { data, error } = await supabase.rpc('release_pending_booking_hold', {
+      p_booking_id: bookingId,
+      p_reason: reason,
+    });
+
+    await broadcastBookingsSync(null);
+    return { released: Boolean(data?.released), error: error || null };
+  } catch (err) {
+    console.error('Error releasing pending booking hold:', err);
+    return { released: false, error: err };
   }
 }
 
@@ -204,36 +420,7 @@ export async function createSupabaseBooking({
   termsAccepted = true,
 }) {
   try {
-    if (!station?.id || station.isLiveDb === false) {
-      throw new Error(
-        'Database tables not initialized yet. Please run migration 02_stations_and_bookings.sql in Supabase first.'
-      );
-    }
-
-    if (station.isActive === false) {
-      throw new Error(
-        `${station.name || 'This station'} is currently disabled (Temporarily Unavailable). Please select an active station.`
-      );
-    }
-
-    const latestSettings = await fetchAppSettings({ forceRefresh: true });
-    if (latestSettings.bookingEnabled === false) {
-      throw new Error('Bookings are temporarily unavailable. Please try again later.');
-    }
-    if (
-      latestSettings.advanceBookingEnabled === false &&
-      isoDate > getKolkataTodayIso()
-    ) {
-      throw new Error(
-        'Advance bookings for future dates are currently disabled. Same-day bookings remain available.'
-      );
-    }
-
-    const startAt = buildKolkataTimestamp(isoDate, startTime);
-
-    if (!isoDate || !startTime || Number.isNaN(Date.parse(startAt)) || isSlotStartInPast(isoDate, startTime, Date.now())) {
-      throw new Error('This time slot has already passed. Please choose an upcoming time.');
-    }
+    const startAt = await validateCustomerBookingPrechecks({ station, isoDate, startTime });
 
     const { data, error } = await supabase.rpc('create_customer_booking', {
       p_station_id: station.id,
@@ -244,41 +431,14 @@ export async function createSupabaseBooking({
     });
 
     if (error) {
-      const msg = String(error.message || '');
-      const lower = msg.toLowerCase();
-      if (lower.includes('temporarily unavailable') && lower.includes('try again later')) {
-        throw new Error('Bookings are temporarily unavailable. Please try again later.');
-      }
-      if (lower.includes('advance bookings for future dates')) {
-        throw new Error(
-          'Advance bookings for future dates are currently disabled. Same-day bookings remain available.'
-        );
-      }
-      if (lower.includes('currently inactive') || lower.includes('temporarily unavailable')) {
-        throw new Error(
-          `${station.name || 'Selected station'} is currently disabled and temporarily unavailable.`
-        );
-      }
-      throw error;
+      throw mapBookingRpcError(error, station);
     }
 
     const bookingRow = data?.booking;
     const stationRow = data?.station || station;
     const mapped = mapDbBookingToUi(bookingRow, stationRow);
 
-    invalidateBookingCaches();
-    window.dispatchEvent(new Event('oliveal_booking_updated'));
-    try {
-      const ch = supabase.channel('oliveal-bookings-sync');
-      await ch.send({
-        type: 'broadcast',
-        event: 'booking_changed',
-        payload: { station_id: station.id, ts: Date.now() },
-      });
-      supabase.removeChannel(ch);
-    } catch {
-      // Non-fatal sync notification
-    }
+    await broadcastBookingsSync(station.id);
     return { booking: mapped, error: null };
   } catch (err) {
     console.error('Error creating Supabase booking:', err);
