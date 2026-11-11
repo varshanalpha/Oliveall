@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import AppRoutes from './routes/AppRoutes';
+import { initNativeAndroidShell } from './utils/nativeAndroidSetup';
 
 const CORE_VISUAL_ASSETS = [
   '/assets/images/oliveal-logo.png',
@@ -15,15 +16,18 @@ const preloadedImages = [];
 
 export default function App() {
   useEffect(() => {
-    if (preloadedImages.length > 0) return;
-    CORE_VISUAL_ASSETS.forEach((src) => {
-      const img = new Image();
-      img.src = src;
-      if (typeof img.decode === 'function') {
-        img.decode().catch(() => {});
-      }
-      preloadedImages.push(img);
-    });
+    const cleanupNativeShell = initNativeAndroidShell();
+    if (preloadedImages.length === 0) {
+      CORE_VISUAL_ASSETS.forEach((src) => {
+        const img = new Image();
+        img.src = src;
+        if (typeof img.decode === 'function') {
+          img.decode().catch(() => {});
+        }
+        preloadedImages.push(img);
+      });
+    }
+    return cleanupNativeShell;
   }, []);
 
   return (

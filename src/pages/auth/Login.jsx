@@ -34,7 +34,7 @@ export default function Login() {
     }
   }, []);
 
-  // Surface any OAuth redirect errors (e.g. user cancelled Google consent)
+  // Surface any OAuth redirect errors or native Chrome Custom Tab cancellation
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -49,6 +49,20 @@ export default function Login() {
         message: oauthErrorDesc || 'Google sign-in was cancelled or failed. Please try again.',
       });
     }
+
+    const handleNativeOAuthCancelled = (e) => {
+      setSocialLoading(false);
+      if (e?.detail?.message) {
+        setStatus({
+          type: 'error',
+          message: e.detail.message,
+        });
+      }
+    };
+    window.addEventListener('oliveal_oauth_cancelled', handleNativeOAuthCancelled);
+    return () => {
+      window.removeEventListener('oliveal_oauth_cancelled', handleNativeOAuthCancelled);
+    };
   }, []);
 
   // Automatically redirect returning Google OAuth sessions or already-authenticated users
@@ -56,6 +70,10 @@ export default function Login() {
   useEffect(() => {
     if (!authLoading && user && !loading) {
       sessionStorage.removeItem('oliveal_oauth_pending');
+      if (sessionStorage.getItem('oliveal_recovery_pending') === 'true') {
+        navigate('/reset-password', { replace: true });
+        return;
+      }
       const effectiveRole = profile?.role || 'customer';
       if (effectiveRole === 'admin') {
         navigate('/admin/dashboard', { replace: true });

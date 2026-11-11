@@ -51,7 +51,14 @@ Thumbs.db
 *.sw?
 *.sublime-workspace
 
-# 7. Local Scratch, Temporary Archives & Agent Dirs
+# 7. Android / Capacitor Build Artifacts
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/build/
+
+# 8. Local Scratch, Temporary Archives & Agent Dirs
 images 2/
 *.zip
 .gemini/

@@ -32,7 +32,7 @@ export default function Signup() {
   // 6-Digit OTP Step State
   const [showOtpStep, setShowOtpStep] = useState(false);
 
-  // Surface any OAuth redirect errors
+  // Surface any OAuth redirect errors or native Chrome Custom Tab cancellation
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -47,6 +47,20 @@ export default function Signup() {
         message: oauthErrorDesc || 'Google sign-in was cancelled or failed. Please try again.',
       });
     }
+
+    const handleNativeOAuthCancelled = (e) => {
+      setSocialLoading(false);
+      if (e?.detail?.message) {
+        setStatus({
+          type: 'error',
+          message: e.detail.message,
+        });
+      }
+    };
+    window.addEventListener('oliveal_oauth_cancelled', handleNativeOAuthCancelled);
+    return () => {
+      window.removeEventListener('oliveal_oauth_cancelled', handleNativeOAuthCancelled);
+    };
   }, []);
 
   // Redirect authenticated users or returning Google OAuth sessions to Customer Main Page

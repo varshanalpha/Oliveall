@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import Login from '../pages/auth/Login';
@@ -96,6 +96,18 @@ function RootRedirect() {
 }
 
 export default function AppRoutes() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleRecovery = () => {
+      navigate('/reset-password', { replace: true });
+    };
+    window.addEventListener('oliveal_password_recovery', handleRecovery);
+    return () => {
+      window.removeEventListener('oliveal_password_recovery', handleRecovery);
+    };
+  }, [navigate]);
+
   return (
     <Routes>
       {/* Root Route */}

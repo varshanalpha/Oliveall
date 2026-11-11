@@ -6,9 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npm run build && npx cap sync android && npx cap open android",
+    "android:apk:debug": "npm run build && npx cap sync android && (cd android && JAVA_HOME=\"${JAVA_HOME_21:-$([ -d /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ] && echo /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home || echo \"$JAVA_HOME\")}\" ANDROID_HOME=\"${ANDROID_HOME:-$HOME/Library/Android/sdk}\" ./gradlew assembleDebug)",
+    "android:apk:release": "npm run build && npx cap sync android && (cd android && JAVA_HOME=\"${JAVA_HOME_21:-$([ -d /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ] && echo /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home || echo \"$JAVA_HOME\")}\" ANDROID_HOME=\"${ANDROID_HOME:-$HOME/Library/Android/sdk}\" ./gradlew assembleRelease)",
+    "android:aab": "npm run build && npx cap sync android && (cd android && JAVA_HOME=\"${JAVA_HOME_21:-$([ -d /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ] && echo /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home || echo \"$JAVA_HOME\")}\" ANDROID_HOME=\"${ANDROID_HOME:-$HOME/Library/Android/sdk}\" ./gradlew bundleRelease)"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/status-bar": "^8.0.4",
     "@supabase/supabase-js": "^2.119.0",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.16.0",
@@ -18,6 +27,9 @@
     "react-router-dom": "^6.28.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

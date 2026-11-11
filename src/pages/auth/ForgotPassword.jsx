@@ -101,6 +101,7 @@ export default function ForgotPassword() {
               onChange={(e) => {
                 setEmail(e.target.value);
                 if (error) setError('');
+                if (status) setStatus(null);
               }}
               placeholder="Enter your registered email"
               icon={Mail}

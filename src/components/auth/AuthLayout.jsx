@@ -19,7 +19,7 @@ export default function AuthLayout({
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[#07060e] text-white flex flex-col justify-between items-center overflow-x-hidden selection:bg-purple-600 selection:text-white">
+    <div className="relative min-h-[100dvh] w-full bg-[#07060e] text-white flex flex-col justify-between items-center overflow-x-hidden selection:bg-purple-600 selection:text-white">
       
       {/* ================= BACKGROUND GAMING ATMOSPHERE ================= */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
@@ -135,7 +135,7 @@ export default function AuthLayout({
       </div>
 
       {/* ================= TOP BAR (OPTIONAL BACK BUTTON) ================= */}
-      <div className="relative z-20 w-full max-w-[465px] mx-auto pt-4 px-4 sm:px-5 flex items-center justify-between min-h-[44px]">
+      <div className="relative z-20 w-full max-w-[465px] mx-auto pt-[max(env(safe-area-inset-top),0.85rem)] px-4 sm:px-5 flex items-center justify-between min-h-[44px]">
         {showBackButton ? (
           <button
             type="button"

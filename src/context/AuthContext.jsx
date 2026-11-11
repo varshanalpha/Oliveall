@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { supabase } from '../lib/supabase';
+import {
+  NATIVE_OAUTH_REDIRECT_URL,
+  NATIVE_RESET_PASSWORD_REDIRECT_URL,
+  parseOAuthCallbackUrl,
+} from '../utils/nativeAndroidSetup';
 
 const AuthContext = createContext(null);
 
@@ -134,6 +142,11 @@ export function AuthProvider({ children }) {
         setProfile(null);
       }
 
+      if (event === 'PASSWORD_RECOVERY') {
+        sessionStorage.setItem('oliveal_recovery_pending', 'true');
+        window.dispatchEvent(new Event('oliveal_password_recovery'));
+      }
+
       if (mounted && initialLoadDone) {
         setLoading(false);
       }
@@ -144,6 +157,109 @@ export function AuthProvider({ children }) {
       subscription?.unsubscribe();
     };
   }, [resolveProfileData]);
+
+  // Handle native Android/Capacitor Google OAuth deep-link callback & browser close
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+
+    let active = true;
+    let urlListener = null;
+    let browserFinishListener = null;
+
+    const notifyOAuthCancelled = (message = null) => {
+      sessionStorage.removeItem('oliveal_oauth_pending');
+      window.dispatchEvent(
+        new CustomEvent('oliveal_oauth_cancelled', {
+          detail: message ? { message } : null,
+        })
+      );
+    };
+
+    const handleIncomingOAuthUrl = async (rawUrl) => {
+      const parsed = parseOAuthCallbackUrl(rawUrl);
+      if (!parsed || !active) return;
+
+      await Browser.close().catch(() => {});
+
+      if (parsed.error || parsed.errorDescription) {
+        notifyOAuthCancelled(
+          parsed.errorDescription || 'Google sign-in was cancelled or failed. Please try again.'
+        );
+        return;
+      }
+
+      try {
+        if (parsed.isRecovery) {
+          sessionStorage.setItem('oliveal_recovery_pending', 'true');
+        }
+        if (parsed.code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(parsed.code);
+          if (error) throw error;
+          if (parsed.isRecovery) {
+            window.dispatchEvent(new Event('oliveal_password_recovery'));
+          }
+        } else if (parsed.accessToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: parsed.accessToken,
+            refresh_token: parsed.refreshToken,
+          });
+          if (error) throw error;
+          if (parsed.isRecovery) {
+            window.dispatchEvent(new Event('oliveal_password_recovery'));
+          }
+        } else {
+          sessionStorage.removeItem('oliveal_recovery_pending');
+          notifyOAuthCancelled('Unable to complete Google authentication. Please try again.');
+        }
+      } catch (err) {
+        sessionStorage.removeItem('oliveal_recovery_pending');
+        notifyOAuthCancelled(
+          err?.message || 'Failed to complete Google sign-in. Please try again.'
+        );
+      }
+    };
+
+    (async () => {
+      try {
+        const launch = await CapApp.getLaunchUrl();
+        if (launch?.url && active) {
+          await handleIncomingOAuthUrl(launch.url);
+        }
+      } catch {
+        // Ignore launch URL lookup failure
+      }
+
+      try {
+        const handle = await CapApp.addListener('appUrlOpen', ({ url }) => {
+          handleIncomingOAuthUrl(url);
+        });
+        if (active) urlListener = handle;
+        else handle.remove();
+      } catch {
+        // Ignore listener error
+      }
+
+      try {
+        const handle = await Browser.addListener('browserFinished', () => {
+          setTimeout(() => {
+            if (active && sessionStorage.getItem('oliveal_oauth_pending') === 'true') {
+              notifyOAuthCancelled(null);
+            }
+          }, 500);
+        });
+        if (active) browserFinishListener = handle;
+        else handle.remove();
+      } catch {
+        // Ignore browser listener error
+      }
+    })();
+
+    return () => {
+      active = false;
+      urlListener?.remove?.().catch?.(() => {});
+      browserFinishListener?.remove?.().catch?.(() => {});
+    };
+  }, []);
 
   // Customer Signup
   const signUp = async ({ email, password, fullName }) => {
@@ -227,14 +343,19 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Google OAuth Login (Customer Portal)
+  // Google OAuth Login (Customer Portal — supports Web + Capacitor Native Android Chrome Custom Tab)
   const signInWithGoogle = async () => {
     try {
       sessionStorage.setItem('oliveal_oauth_pending', 'true');
+      const isNative = Capacitor.isNativePlatform();
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: isNative
+            ? NATIVE_OAUTH_REDIRECT_URL
+            : `${window.location.origin}/dashboard`,
+          ...(isNative ? { skipBrowserRedirect: true } : {}),
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
@@ -246,6 +367,14 @@ export function AuthProvider({ children }) {
         sessionStorage.removeItem('oliveal_oauth_pending');
         throw error;
       }
+
+      if (isNative && data?.url) {
+        await Browser.open({
+          url: data.url,
+          toolbarColor: '#080510',
+        });
+      }
+
       return { data, error: null };
     } catch (error) {
       sessionStorage.removeItem('oliveal_oauth_pending');
@@ -309,11 +438,48 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Password Reset Email
+  // Password Reset Email (strictly verified against registered Admin & Customer database accounts)
   const resetPassword = async (email) => {
     try {
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const cleanEmail = String(email || '').trim();
+      if (!cleanEmail) {
+        throw new Error('Email address is required');
+      }
+
+      const { data: emailRegistered, error: verifyErr } = await supabase.rpc(
+        'is_registered_email',
+        { p_email: cleanEmail }
+      );
+
+      if (verifyErr) {
+        const msg = String(verifyErr.message || '');
+        const code = String(verifyErr.code || '');
+        if (
+          code === 'PGRST202' ||
+          code === '42883' ||
+          msg.includes('is_registered_email')
+        ) {
+          throw new Error(
+            'Password reset verification is not configured in Supabase yet. Please execute supabase/migrations/06_registered_email_check.sql in Supabase SQL Editor.'
+          );
+        }
+        throw new Error(
+          msg || 'Unable to verify registered email address right now. Please try again.'
+        );
+      }
+
+      if (emailRegistered !== true) {
+        throw new Error(
+          'No registered account found with this email address. Please enter your registered email.'
+        );
+      }
+
+      const redirectUrl = Capacitor.isNativePlatform()
+        ? NATIVE_RESET_PASSWORD_REDIRECT_URL
+        : `${window.location.origin}/reset-password`;
+
+      const { data, error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: redirectUrl,
       });
 
       if (error) throw error;

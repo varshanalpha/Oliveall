@@ -60,6 +60,7 @@ export default function ResetPassword() {
       }
 
       setSuccess(true);
+      sessionStorage.removeItem('oliveal_recovery_pending');
       setStatus({
         type: 'success',
         message: 'Password successfully updated! Redirecting to login...',
