@@ -74,4 +74,8 @@ CUSTOMER_BOOKING_IMPLEMENTATION_*.md
 
 # Unused image collection
 images 2/
-
+# Untracked image assets
+Images/
+images 2/
+spot-booking-assets/
+EOF
