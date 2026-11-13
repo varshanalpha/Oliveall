@@ -67,4 +67,11 @@ images 2/
 coverage/
 .vercel
 .netlify
+# Internal documentation
+IMPLEMENTATION_PLAN.md
+AUTH_IMPLEMENTATION_PLAN.md
+CUSTOMER_BOOKING_IMPLEMENTATION_*.md
+
+# Unused image collection
+images 2/
 
